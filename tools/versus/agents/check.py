@@ -55,6 +55,9 @@ def check(red=False):
     try:
         seat = int(red)
         o = s.observe(seat)
+        assert o["rules"]["objective"]["id"] == "elimination"
+        assert o["rules"]["party"]["size"] == 5
+        assert o["rules"]["map"]["castles"] == []
         a = choose(o)
         b = body(s, o, a, "first")
         assert s.act(1 - seat, b)["error"] == "not_your_turn"

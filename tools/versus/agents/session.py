@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Two isolated linked GBA cores, with serialized agent observations/actions."""
 
+from rules import RULES
 from pathlib import Path
 import json, subprocess, time, threading, uuid, struct, secrets, argparse, hashlib
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -49,7 +50,10 @@ class Session:
             bufsize=1,
         )
         assert json.loads(self.p.stdout.readline())["ready"]
-        self.event("start", {"match": self.id, "manifest": manifest, "red_opener": red})
+        self.event(
+            "start",
+            {"match": self.id, "manifest": manifest, "rules": RULES, "red_opener": red},
+        )
         self.stable()
 
     def event(self, kind, data):
@@ -174,6 +178,7 @@ class Session:
             )
             obs = {
                 "match_id": self.id,
+                "rules": RULES,
                 "seat": seat,
                 "active_seat": s["active"],
                 "sequence": s["seq"],
