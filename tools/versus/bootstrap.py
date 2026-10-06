@@ -37,7 +37,9 @@ for tool in [
         raise SystemExit("Install the required build tool: " + tool)
 for module in ["numpy", "PIL"]:
     if importlib.util.find_spec(module) is None:
-        raise SystemExit("Install the Python build dependencies: python3 -m pip install numpy Pillow")
+        raise SystemExit(
+            "Install the Python build dependencies: python3 -m pip install numpy Pillow"
+        )
 rom = args.base or ROOT / "baserom.gba"
 if (
     not rom.exists()
@@ -101,6 +103,9 @@ if args.with_tests:
         "-DENABLE_SCRIPTING=OFF",
         "-DBUILD_SHARED=ON",
     ]
-    run([cmake, "-S", str(mgba), "-B", str(build), *flags], env=env)
+    run(
+        [cmake, "-G", "Unix Makefiles", "-S", str(mgba), "-B", str(build), *flags],
+        env=env,
+    )
     run([cmake, "--build", str(build), "-j8"], env=env)
     run([sys.executable, "tools/versus/test.py", "--linked", "--agents", "--scenarios"])

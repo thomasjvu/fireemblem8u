@@ -35,6 +35,10 @@ class Session:
         if hashlib.sha256(catalog_bytes).hexdigest() != manifest["catalog_sha256"]:
             raise RuntimeError("Scenario catalog does not match ROM build")
         self.catalog = json.loads(catalog_bytes)
+        if self.catalog != json.loads((ROOT / "versus/catalog.json").read_text()):
+            raise RuntimeError(
+                "Scenario catalog changed; rebuild the ROM before starting a match"
+            )
         choices = [map_id, blue_party, red_party, objective]
         if any(type(v) is not int or v not in range(3) for v in choices):
             raise ValueError("Unknown map, party, or objective")
