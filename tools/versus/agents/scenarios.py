@@ -126,12 +126,12 @@ def capture(map_id, objective, seat, blue_party=0, red_party=0):
         s.close()
 
 
-def battle(map_id, opener):
+def battle(map_id, opener, blue_party=None, red_party=None):
     s = Session(
         red=bool(opener),
         map_id=map_id,
-        blue_party=map_id % PARTIES,
-        red_party=(map_id + 1) % PARTIES,
+        blue_party=map_id % PARTIES if blue_party is None else blue_party,
+        red_party=(map_id + 1) % PARTIES if red_party is None else red_party,
     )
     try:
         attacks = 0
@@ -189,7 +189,12 @@ if __name__ == "__main__":
                     blue_party=m % PARTIES,
                     red_party=(m + 1) % PARTIES,
                 )
-    # All independent independent party pairings can deploy and agree.
+    for party in range(MAPS, PARTIES):
+        for opener in range(2):
+            battle(party % MAPS, opener, party, (party + 1) % PARTIES)
+        for seat in range(2):
+            capture(party % MAPS, 2, seat, party, party)
+    # All independent party pairings can deploy and agree.
     for b in range(PARTIES):
         for r in range(PARTIES):
             s = Session(blue_party=b, red_party=r)

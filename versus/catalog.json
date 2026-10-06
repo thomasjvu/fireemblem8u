@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "roles": [
     "sword",
     "axe",
@@ -455,6 +455,342 @@
         }
       ],
       "name": "Outriders"
+    },
+    {
+      "id": "raiders",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_CAVALIER",
+          "item_symbol": "ITEM_SWORD_IRON",
+          "hp": 28,
+          "power": 8,
+          "speed": 11,
+          "defense": 5,
+          "resistance": 2
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_BRIGAND",
+          "item_symbol": "ITEM_AXE_HANDAXE",
+          "hp": 30,
+          "power": 10,
+          "speed": 9,
+          "defense": 5,
+          "resistance": 2
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_IRON",
+          "hp": 24,
+          "power": 8,
+          "speed": 11,
+          "defense": 4,
+          "resistance": 2
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_MAGE_F",
+          "item_symbol": "ITEM_ANIMA_FIRE",
+          "hp": 22,
+          "power": 8,
+          "speed": 11,
+          "defense": 3,
+          "resistance": 7
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_TROUBADOUR",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 24,
+          "power": 6,
+          "speed": 10,
+          "defense": 3,
+          "resistance": 8
+        }
+      ],
+      "name": "Raiders"
+    },
+    {
+      "id": "longshot",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_MYRMIDON_F",
+          "item_symbol": "ITEM_SWORD_IRON",
+          "hp": 28,
+          "power": 8,
+          "speed": 11,
+          "defense": 6,
+          "resistance": 3
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_FIGHTER",
+          "item_symbol": "ITEM_AXE_HANDAXE",
+          "hp": 32,
+          "power": 10,
+          "speed": 8,
+          "defense": 7,
+          "resistance": 3
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_LONGBOW",
+          "hp": 26,
+          "power": 10,
+          "speed": 9,
+          "defense": 5,
+          "resistance": 3
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_MAGE_F",
+          "item_symbol": "ITEM_ANIMA_THUNDER",
+          "hp": 24,
+          "power": 9,
+          "speed": 9,
+          "defense": 4,
+          "resistance": 8
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_PRIEST",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 28,
+          "power": 7,
+          "speed": 8,
+          "defense": 5,
+          "resistance": 9
+        }
+      ],
+      "name": "Longshot"
+    },
+    {
+      "id": "duelists",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_MYRMIDON_F",
+          "item_symbol": "ITEM_SWORD_SLIM",
+          "hp": 26,
+          "power": 10,
+          "speed": 15,
+          "defense": 4,
+          "resistance": 3
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_FIGHTER",
+          "item_symbol": "ITEM_AXE_IRON",
+          "hp": 30,
+          "power": 11,
+          "speed": 11,
+          "defense": 5,
+          "resistance": 2
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_IRON",
+          "hp": 24,
+          "power": 9,
+          "speed": 13,
+          "defense": 4,
+          "resistance": 3
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_MAGE_F",
+          "item_symbol": "ITEM_ANIMA_FIRE",
+          "hp": 22,
+          "power": 9,
+          "speed": 12,
+          "defense": 3,
+          "resistance": 8
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_PRIEST",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 24,
+          "power": 7,
+          "speed": 10,
+          "defense": 4,
+          "resistance": 9
+        }
+      ],
+      "name": "Duelists"
+    },
+    {
+      "id": "nightfall",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_MERCENARY",
+          "item_symbol": "ITEM_SWORD_IRON",
+          "hp": 30,
+          "power": 9,
+          "speed": 10,
+          "defense": 7,
+          "resistance": 5
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_FIGHTER",
+          "item_symbol": "ITEM_AXE_IRON",
+          "hp": 34,
+          "power": 11,
+          "speed": 7,
+          "defense": 8,
+          "resistance": 4
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_IRON",
+          "hp": 26,
+          "power": 9,
+          "speed": 9,
+          "defense": 5,
+          "resistance": 5
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_SHAMAN_F",
+          "item_symbol": "ITEM_DARK_NOSFERATU",
+          "hp": 28,
+          "power": 10,
+          "speed": 8,
+          "defense": 4,
+          "resistance": 10
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_PRIEST",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 26,
+          "power": 8,
+          "speed": 8,
+          "defense": 4,
+          "resistance": 11
+        }
+      ],
+      "name": "Nightfall"
+    },
+    {
+      "id": "ember",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_MERCENARY",
+          "item_symbol": "ITEM_SWORD_STEEL",
+          "hp": 30,
+          "power": 10,
+          "speed": 10,
+          "defense": 7,
+          "resistance": 2
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_FIGHTER",
+          "item_symbol": "ITEM_AXE_IRON",
+          "hp": 32,
+          "power": 11,
+          "speed": 9,
+          "defense": 7,
+          "resistance": 2
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_IRON",
+          "hp": 26,
+          "power": 9,
+          "speed": 10,
+          "defense": 5,
+          "resistance": 2
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_MAGE_F",
+          "item_symbol": "ITEM_ANIMA_ELFIRE",
+          "hp": 26,
+          "power": 12,
+          "speed": 9,
+          "defense": 3,
+          "resistance": 8
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_PRIEST",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 26,
+          "power": 8,
+          "speed": 9,
+          "defense": 4,
+          "resistance": 9
+        }
+      ],
+      "name": "Ember"
+    },
+    {
+      "id": "veterans",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_HERO_F",
+          "item_symbol": "ITEM_SWORD_IRON",
+          "hp": 28,
+          "power": 8,
+          "speed": 10,
+          "defense": 6,
+          "resistance": 3
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_WARRIOR",
+          "item_symbol": "ITEM_AXE_IRON",
+          "hp": 32,
+          "power": 10,
+          "speed": 7,
+          "defense": 7,
+          "resistance": 2
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_SNIPER_F",
+          "item_symbol": "ITEM_BOW_IRON",
+          "hp": 24,
+          "power": 8,
+          "speed": 9,
+          "defense": 5,
+          "resistance": 3
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_SAGE_F",
+          "item_symbol": "ITEM_ANIMA_FIRE",
+          "hp": 22,
+          "power": 8,
+          "speed": 9,
+          "defense": 3,
+          "resistance": 8
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_BISHOP",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 24,
+          "power": 6,
+          "speed": 7,
+          "defense": 4,
+          "resistance": 9
+        }
+      ],
+      "name": "Veterans"
     }
   ],
   "maps": [
