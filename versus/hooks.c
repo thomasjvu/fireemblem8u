@@ -222,6 +222,7 @@ void VsSwitchViewedUnit(int x, int y) {
 }
 extern const struct ProcCmd gProcScr_TitleScreen[], ProcScr_SaveMenu[], VersusProc[];
 /* Extras -> Link Arena, or L+R+Select from the title/save menu. */
+extern void VersusAgentLegal(void);
 void VsOnMain(void) {
     volatile u32 *mail = (volatile u32 *)0x0203EFF0;
     if (mail[0] == 0x56534254 ||
@@ -239,6 +240,7 @@ void VsOnMain(void) {
     }
     if (VersusActive()) {
         volatile u32 *request = (volatile u32 *)0x0203F800;
+        if(request[0]==0x56534C47)VersusAgentLegal();
         if (request[0] == 0x5653434D) {
             request[0] = 0;
             if (VS_RAM->state == VS_PLAY &&

@@ -123,7 +123,8 @@ int VersusValidate(const struct VersusCommand *c) {
         return ((c->target ^ c->actor) & 0x80) && CanUnitUseWeapon(u, item) &&
                dist >= GetItemMinRange(item) && dist <= GetItemMaxRange(item);
     if (c->type == UNIT_ACTION_STAFF)
-        return !((c->target ^ c->actor) & 0x80) && GetItemIndex(item) == ITEM_STAFF_HEAL &&
-               CanUnitUseStaff(u, item) && dist == 1 && target->curHP < target->maxHP;
+        return target != u && !((c->target ^ c->actor) & 0x80) &&
+               GetItemIndex(item) == ITEM_STAFF_HEAL && CanUnitUseStaff(u, item) && dist == 1 &&
+               target->curHP < target->maxHP;
     return 0;
 }
