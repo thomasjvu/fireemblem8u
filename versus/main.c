@@ -29,6 +29,7 @@ struct VersusOptions VersusOptions;
 struct VsRoster {
     u8 classId, item, hp, power, speed, defense, resistance;
 };
+#include "catalog_counts.h"
 #include "catalog.h"
 int VersusCanSeize(int seat, int x, int y) {
     return VersusOptions.objective != 0 && x == (seat ? 1 : 13) && y == 7;
@@ -54,14 +55,11 @@ static void line(int row, const char *text) {
     BG_EnableSyncByMask(BG0_SYNC_BIT);
 }
 void VersusOpenerText(void) {
-    static const char *names[3] = {"Forest forts", "Woodland", "Crossroads"};
     static const char *goals[3] = {"Elimination", "Seizure", "Either"};
-    line(1, names[VersusOptions.chosenMap]);
+    line(1, mapNames[VersusOptions.chosenMap]);
     line(2, goals[VersusOptions.chosenObjective]);
-    static const char *blue[3] = {"Blue: Balanced", "Blue: Mobile", "Blue: Vanguard"};
-    static const char *red[3] = {"Red: Balanced", "Red: Mobile", "Red: Vanguard"};
-    line(3, blue[VersusOptions.chosenBlue]);
-    line(4, red[VersusOptions.chosenRed]);
+    line(3, bluePartyNames[VersusOptions.chosenBlue]);
+    line(4, redPartyNames[VersusOptions.chosenRed]);
     line(5, VS_RAM->chosenOpener ? "Red opens" : "Blue opens");
 }
 static void lobby(ProcPtr proc) {
@@ -186,8 +184,8 @@ static void begin(ProcPtr proc) {
     }
     Proc_EndEach(VersusTransportProc);
     v->hasCommand = v->executed = v->remoteReady = v->localDone = v->remoteDone = 0;
-    if (VersusOptions.chosenMap >= 3 || VersusOptions.chosenBlue >= 3 ||
-        VersusOptions.chosenRed >= 3 || VersusOptions.chosenObjective >= 3) {
+    if (VersusOptions.chosenMap >= VS_MAP_COUNT || VersusOptions.chosenBlue >= VS_PARTY_COUNT ||
+        VersusOptions.chosenRed >= VS_PARTY_COUNT || VersusOptions.chosenObjective >= VS_OBJECTIVE_COUNT) {
         VersusAbort(5);
         return;
     }

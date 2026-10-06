@@ -77,4 +77,4 @@ if "--scenarios" in sys.argv:
     run([sys.executable, "tools/versus/tests/lobby_scenarios.py"], timeout=60)
     run([sys.executable, "tools/versus/tests/seize_invalid.py"], timeout=60)
     run([sys.executable, "tools/versus/tests/seize_ui.py"], timeout=60)
-    run([sys.executable, "tools/versus/agents/scenarios.py"], timeout=900)
+    run([sys.executable, "tools/versus/agents/scenarios.py"], timeout=2400)

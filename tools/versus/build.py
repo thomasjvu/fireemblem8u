@@ -204,13 +204,53 @@ def main():
         + sorted((ROOT / "versus").glob("*.json"))
     )
     catalog = json.loads((ROOT / "versus/catalog.json").read_text())
+    counts = {
+        "VS_MAP_COUNT": len(catalog["maps"]),
+        "VS_PARTY_COUNT": len(catalog["parties"]),
+        "VS_OBJECTIVE_COUNT": len(catalog["objectives"]),
+    }
+    if any(n < 1 or n > 255 for n in counts.values()):
+        raise SystemExit("Catalog selector counts must fit one byte")
+    for entries in [catalog["maps"], catalog["parties"]]:
+        if len({e["id"] for e in entries}) != len(entries):
+            raise SystemExit("Catalog IDs must be unique")
+    for m in catalog["maps"]:
+        if (
+            m["width"] != 15
+            or m["height"] != 15
+            or len(m["tiles"]) != 15
+            or any(
+                len(row) != 15 or any(v not in [0, 1, 2] for v in row)
+                for row in m["tiles"]
+            )
+        ):
+            raise SystemExit("Maps must contain 15x15 supported terrain tiles")
+        if any(
+            m["tiles"][y][x] != m["tiles"][y][14 - x]
+            for y in range(15)
+            for x in range(15)
+        ):
+            raise SystemExit("Maps must mirror terrain between armies")
+        if m["castles"] != [[1, 7], [13, 7]] or m["deployment"] != [
+            [[2, y] for y in [3, 5, 7, 9, 11]],
+            [[12, y] for y in [3, 5, 7, 9, 11]],
+        ]:
+            raise SystemExit(
+                "Catalog geometry must match native deployment and castles"
+            )
+    for p in catalog["parties"]:
+        if [u["role"] for u in p["units"]] != catalog["roles"]:
+            raise SystemExit("Each party must contain the five ordered roles")
+    (OUT / "catalog_counts.h").write_text(
+        "\n".join(f"#define {key} {value}" for key, value in counts.items()) + "\n"
+    )
     generated = [
-        "static const u8 scenarioTiles[3][15][15] = "
+        "static const u8 scenarioTiles[VS_MAP_COUNT][15][15] = "
         + str([m["tiles"] for m in catalog["maps"]]).replace("[", "{").replace("]", "}")
         + ";"
     ]
     generated.append(
-        "static const struct VsRoster roster[3][5] = {"
+        "static const struct VsRoster roster[VS_PARTY_COUNT][5] = {"
         + ",".join(
             "{"
             + ",".join(
@@ -235,6 +275,18 @@ def main():
         )
         + "};"
     )
+    for label, entries, prefix in [
+        ("mapNames", catalog["maps"], ""),
+        ("bluePartyNames", catalog["parties"], "Blue: "),
+        ("redPartyNames", catalog["parties"], "Red: "),
+    ]:
+        generated.append(
+            "static const char *"
+            + label
+            + "[] = {"
+            + ",".join(json.dumps(prefix + entry["name"]) for entry in entries)
+            + "};"
+        )
     (OUT / "catalog.h").write_text("\n".join(generated))
     (OUT / "catalog.json").write_text(json.dumps(catalog, indent=2) + "\n")
     content = hashlib.sha256(

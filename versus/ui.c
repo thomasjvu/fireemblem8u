@@ -1,4 +1,5 @@
 #include "versus.h"
+#include "catalog_counts.h"
 #include "uimenu.h"
 extern void VersusOpenerText(void);
 static u8 choose(struct MenuProc *m, struct MenuItemProc *i) {
@@ -26,9 +27,10 @@ static u8 rematch(struct MenuProc *m, struct MenuItemProc *i) {
     return MENU_ACT_SKIPCURSOR | MENU_ACT_END | MENU_ACT_SND6A | MENU_ACT_CLEAR;
 }
 static u8 option(struct MenuProc *m, struct MenuItemProc *i) {
+    static const u8 counts[] = {VS_MAP_COUNT, VS_PARTY_COUNT, VS_PARTY_COUNT, VS_OBJECTIVE_COUNT};
     u8 *choices = &VersusOptions.chosenMap;
     (void)m;
-    choices[i->itemNumber - 4] = (choices[i->itemNumber - 4] + 1) % 3;
+    choices[i->itemNumber - 4] = (choices[i->itemNumber - 4] + 1) % counts[i->itemNumber - 4];
     VersusOpenerText();
     return MENU_ACT_SND6A;
 }

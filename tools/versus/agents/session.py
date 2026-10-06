@@ -39,8 +39,13 @@ class Session:
             raise RuntimeError(
                 "Scenario catalog changed; rebuild the ROM before starting a match"
             )
+        counts = [
+            len(self.catalog[k]) for k in ["maps", "parties", "parties", "objectives"]
+        ]
         choices = [map_id, blue_party, red_party, objective]
-        if any(type(v) is not int or v not in range(3) for v in choices):
+        if any(
+            type(v) is not int or v not in range(n) for v, n in zip(choices, counts)
+        ):
             raise ValueError("Unknown map, party, or objective")
         self.choices = choices
         if (
@@ -65,7 +70,8 @@ class Session:
         ]
         if peer_choices is not None:
             if len(peer_choices) != 4 or any(
-                type(v) is not int or v not in range(3) for v in peer_choices
+                type(v) is not int or v not in range(n)
+                for v, n in zip(peer_choices, counts)
             ):
                 raise ValueError("Unknown peer setup")
             args.extend(map(str, peer_choices))

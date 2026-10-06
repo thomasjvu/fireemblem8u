@@ -1,8 +1,31 @@
 #!/usr/bin/env python3
 """Scenario selection, preset combinations, and both armies' castle captures."""
 
-from session import Session
+from session import Session, ROOT
+import json
+
+CATALOG = json.loads((ROOT / "versus/catalog.json").read_text())
+MAPS = len(CATALOG["maps"])
+PARTIES = len(CATALOG["parties"])
 from check import body, choose
+
+
+def verify_deployment(o, map_id, blue_party, red_party):
+    # Assert against the selected catalog, rather than just peer agreement.
+    expected = [
+        [(1, 12, 10)[tile] for tile in row] for row in CATALOG["maps"][map_id]["tiles"]
+    ]
+    if o["rules"]["objective"]["seize_enabled"]:
+        expected[7][1] = expected[7][13] = 11
+    assert o["terrain"] == expected, "Native terrain differs from catalog"
+    for u in o["units"]:
+        seat = u["seat"]
+        index = (u["id"] & 127) - 1
+        preset = CATALOG["parties"][[blue_party, red_party][seat]]["units"][index]
+        assert u["max_hp"] == preset["hp"]
+        for key in ["power", "speed", "defense", "resistance", "role"]:
+            assert u[key] == preset[key], (key, u, preset)
+        assert [u["x"], u["y"]] == CATALOG["maps"][map_id]["deployment"][seat][index]
 
 
 def capture(map_id, objective, seat, blue_party=0, red_party=0):
@@ -21,6 +44,8 @@ def capture(map_id, objective, seat, blue_party=0, red_party=0):
             if p["outcome"]:
                 break
             o = s.observe(p["active"])
+            if step == 0:
+                verify_deployment(o, map_id, blue_party, red_party)
             actions = o["legal_actions"]
             assert o["rules"]["map"]["id"] == s.catalog["maps"][map_id]["id"]
             assert (
@@ -103,7 +128,10 @@ def capture(map_id, objective, seat, blue_party=0, red_party=0):
 
 def battle(map_id, opener):
     s = Session(
-        red=bool(opener), map_id=map_id, blue_party=map_id, red_party=(map_id + 1) % 3
+        red=bool(opener),
+        map_id=map_id,
+        blue_party=map_id % PARTIES,
+        red_party=(map_id + 1) % PARTIES,
     )
     try:
         attacks = 0
@@ -148,20 +176,27 @@ def mismatch():
 
 if __name__ == "__main__":
     mismatch()
-    for m in range(3):
+    for m in range(MAPS):
         for opener in range(2):
             battle(m, opener)
-    for m in range(3):
+    for m in range(MAPS):
         for objective in [1, 2]:
             for seat in range(2):
-                capture(m, objective, seat, blue_party=m, red_party=(m + 1) % 3)
-    # All nine independent party pairings can deploy and agree.
-    for b in range(3):
-        for r in range(3):
+                capture(
+                    m,
+                    objective,
+                    seat,
+                    blue_party=m % PARTIES,
+                    red_party=(m + 1) % PARTIES,
+                )
+    # All independent independent party pairings can deploy and agree.
+    for b in range(PARTIES):
+        for r in range(PARTIES):
             s = Session(blue_party=b, red_party=r)
             try:
                 o = s.observe(0)
                 assert len(o["units"]) == 10
+                verify_deployment(o, 0, b, r)
                 a = choose(o)
                 assert s.act(0, body(s, o, a, "preset"))["accepted"]
                 assert not any(a["type"] == "seize" for a in o["legal_actions"])
