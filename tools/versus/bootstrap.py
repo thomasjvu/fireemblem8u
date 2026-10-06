@@ -2,7 +2,7 @@
 """Prepare source-only build tools. Supply your own verified FE8U ROM."""
 
 from pathlib import Path
-import argparse, hashlib, shutil, subprocess, sys, os
+import argparse, hashlib, shutil, subprocess, sys, os, importlib.util
 
 ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser()
@@ -35,6 +35,9 @@ for tool in [
 ]:
     if not shutil.which(tool):
         raise SystemExit("Install the required build tool: " + tool)
+for module in ["numpy", "PIL"]:
+    if importlib.util.find_spec(module) is None:
+        raise SystemExit("Install the Python build dependencies: python3 -m pip install numpy Pillow")
 rom = args.base or ROOT / "baserom.gba"
 if (
     not rom.exists()
