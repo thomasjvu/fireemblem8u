@@ -1,0 +1,13 @@
+# Invoke with make -f Makefile.versus <target> from the decomp root.
+.PHONY: all baseline overlay test test-linked clean
+all: baseline overlay
+baseline:
+	$(MAKE) -j8 FETSATOOL='python3 scripts/gfxtools/tsa_generator.py' TMAP2TSA='python3 scripts/tmap2tsa.py' MARTOMAP='python3 scripts/mar_to_map.py'
+overlay:
+	python3 tools/versus/build.py
+test:
+	python3 tools/versus/test.py
+test-linked:
+	python3 tools/versus/test.py --linked
+clean:
+	rm -rf build/versus
