@@ -5,7 +5,7 @@
 #include "bmunit.h"
 #include "bmmind.h"
 #define VS_MAGIC 0x56533130u
-#define VS_VERSION 1
+#define VS_VERSION 2
 #define VS_UNITS 5
 #define VS_ROUNDS 30
 #define VS_MAP_SIZE 15
@@ -40,6 +40,12 @@ struct VersusContext {
 _Static_assert(sizeof(struct VersusCommand) == 24, "command mailbox ABI");
 _Static_assert(__builtin_offsetof(struct VersusContext, mode) == 0x352, "context mailbox ABI");
 _Static_assert(sizeof(struct Unit) == 72, "FE8 unit ABI");
+struct VersusOptions {
+    u8 chosenMap, chosenBlue, chosenRed, chosenObjective;
+    u8 map, blue, red, objective, victoryReason;
+};
+extern struct VersusOptions VersusOptions;
+int VersusCanSeize(int seat, int x, int y);
 extern const struct ProcCmd VersusProc[];
 int VersusActive(void);
 void VersusEntry(ProcPtr);

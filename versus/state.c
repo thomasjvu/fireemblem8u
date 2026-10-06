@@ -19,6 +19,11 @@ u32 VersusStateHash(void) {
     u16 rn[3];
     int s, i, j;
     h = wordHash(h, VS_VERSION);
+    h = byteHash(h, VersusOptions.map);
+    h = byteHash(h, VersusOptions.blue);
+    h = byteHash(h, VersusOptions.red);
+    h = byteHash(h, VersusOptions.objective);
+    h = byteHash(h, VersusOptions.victoryReason);
     h = wordHash(h, v->round);
     h = wordHash(h, v->activeSeat);
     h = wordHash(h, v->outcome);
@@ -104,6 +109,8 @@ int VersusValidate(const struct VersusCommand *c) {
     RefreshEntityBmMaps();
     if (cost > UNIT_MOV(u) || (gBmMapUnit[c->y][c->x] && gBmMapUnit[c->y][c->x] != c->actor))
         return 0;
+    if (c->type == UNIT_ACTION_SEIZE)
+        return u->curHP > 0 && VersusCanSeize(v->activeSeat, c->x, c->y);
     if (c->type == UNIT_ACTION_WAIT)
         return 1;
     if (c->itemSlot >= 5)

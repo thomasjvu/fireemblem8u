@@ -41,6 +41,10 @@ void VersusAgentLegal(void) {
                 c.itemSlot = 0;
                 c.type = UNIT_ACTION_WAIT;
                 emit(&c, first, &total, &count);
+                if (VersusCanSeize(v->activeSeat, x, y)) {
+                    c.type = UNIT_ACTION_SEIZE;
+                    emit(&c, first, &total, &count);
+                }
                 for (j = 0; j < 5; j++) {
                     int item = u->items[j];
                     if (!item)

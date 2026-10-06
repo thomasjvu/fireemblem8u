@@ -32,7 +32,7 @@ static void quiet(struct mLogger *l, int c, enum mLogLevel v, const char *fmt, v
     (void)args;
 }
 static struct mLogger logger = {.log = quiet};
-static unsigned terrainAddress;
+static unsigned terrainAddress, optionsAddress, chosen[2][4];
 static void hexbytes(struct mCore *c, unsigned addr, unsigned n, char *out) {
     static const char digits[] = "0123456789abcdef";
     for (unsigned i = 0; i < n; i++) {
@@ -50,8 +50,13 @@ static void callback(struct mCoreThread *t) {
         c->busWrite32(c, 0x0203eff0, 0x56534254);
     if (f >= 200 && f < 203)
         keys = 0x80;
-    if (f == 220 && redOpener)
-        c->busWrite8(c, 0x0203f35b, 1);
+    if (f == 220) {
+        if (redOpener)
+            c->busWrite8(c, 0x0203f35b, 1);
+        unsigned player = p == &players[1];
+        for (unsigned i = 0; i < 4; i++)
+            c->busWrite8(c, optionsAddress + i, chosen[player][i]);
+    }
     if (f >= 240 && f < 243)
         keys = 1;
     c->setKeys(c, keys);
@@ -60,19 +65,20 @@ static void callback(struct mCoreThread *t) {
         unsigned state = c->busRead8(c, 0x0203f353), seat = c->busRead8(c, 0x0203f354),
                  active = c->busRead8(c, 0x0203f355);
         if (p->kind == 0) {
-            char units[1441], terrain[451], rng[13];
+            char units[1441], terrain[451], rng[13], options[19];
+            hexbytes(c, optionsAddress, 9, options);
             hexbytes(c, 0x0203f07c, 720, units);
             hexbytes(c, 0x0203f34c, 6, rng);
             unsigned rows = c->busRead32(c, terrainAddress);
             for (unsigned y = 0; y < 15; y++)
                 hexbytes(c, c->busRead32(c, rows + 4 * y), 15, terrain + 30 * y);
-            snprintf(
-                p->response, sizeof(p->response),
-                "{\"seq\":%u,\"hash\":%u,\"state\":%u,\"seat\":%u,\"active\":%u,\"round\":%u,"
-                "\"outcome\":%u,\"error\":%u,\"units\":\"%s\",\"terrain\":\"%s\",\"rng\":\"%s\"}",
-                c->busRead32(c, 0x0203f004), c->busRead32(c, 0x0203f008), state, seat, active,
-                c->busRead8(c, 0x0203f357), c->busRead8(c, 0x0203f358), c->busRead8(c, 0x0203f359),
-                units, terrain, rng);
+            snprintf(p->response, sizeof(p->response),
+                     "{\"seq\":%u,\"hash\":%u,\"state\":%u,\"seat\":%u,\"active\":%u,\"round\":%u,"
+                     "\"outcome\":%u,\"error\":%u,\"units\":\"%s\",\"terrain\":\"%s\",\"rng\":\"%"
+                     "s\",\"options\":\"%s\"}",
+                     c->busRead32(c, 0x0203f004), c->busRead32(c, 0x0203f008), state, seat, active,
+                     c->busRead8(c, 0x0203f357), c->busRead8(c, 0x0203f358),
+                     c->busRead8(c, 0x0203f359), units, terrain, rng, options);
             atomic_store(&p->request, 2);
         } else if (state != 1 || seat != active || c->busRead8(c, 0x0203f358)) {
             strcpy(p->response, "{\"error\":\"not_your_turn\"}");
@@ -109,10 +115,15 @@ static void callback(struct mCoreThread *t) {
 int main(int argc, char **argv) {
     if (argc < 2)
         return 2;
-    if (argc < 3)
+    if (argc < 9)
         return 2;
     terrainAddress = strtoul(argv[2], NULL, 16);
-    redOpener = argc > 3;
+    optionsAddress = strtoul(argv[3], NULL, 16);
+    redOpener = atoi(argv[4]);
+    for (unsigned i = 0; i < 4; i++)
+        chosen[0][i] = chosen[1][i] = atoi(argv[5 + i]);
+    for (unsigned i = 0; i < 4 && argc > 9 + (int)i; i++)
+        chosen[1][i] = atoi(argv[9 + i]);
     mLogSetDefaultLogger(&logger);
     struct GBASIOLockstepCoordinator link;
     GBASIOLockstepCoordinatorInit(&link);

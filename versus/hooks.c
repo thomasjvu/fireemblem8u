@@ -86,6 +86,11 @@ void VsBattleGenerate(struct Unit *a, struct Unit *b) {
 u8 VsMenuAvailability(const struct MenuItemDef *def, int number) {
     if (VersusActive()) {
         int id = def->overrideId;
+        if (id == 0x4E)
+            return gActiveUnit &&
+                           VersusCanSeize(VS_RAM->activeSeat, gActiveUnit->xPos, gActiveUnit->yPos)
+                       ? MENU_ENABLED
+                       : MENU_NOTSHOWN;
         if (id >= 0x35 && id <= 0x37)
             return MENU_NOTSHOWN;
         if (id >= 0x38 && id <= 0x3D && gActiveUnit &&
@@ -157,6 +162,8 @@ u32 VsApplyUnitAction(ProcPtr proc) {
     }
     v->executed = 1;
     loadCommand();
+    if (v->command.type == UNIT_ACTION_SEIZE)
+        gActionData.unitActionType = UNIT_ACTION_WAIT;
     return Original_ApplyUnitAction(proc);
 }
 void VsPlayerIdle(ProcPtr proc) {
@@ -240,7 +247,8 @@ void VsOnMain(void) {
     }
     if (VersusActive()) {
         volatile u32 *request = (volatile u32 *)0x0203F800;
-        if(request[0]==0x56534C47)VersusAgentLegal();
+        if (request[0] == 0x56534C47)
+            VersusAgentLegal();
         if (request[0] == 0x5653434D) {
             request[0] = 0;
             if (VS_RAM->state == VS_PLAY &&

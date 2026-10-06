@@ -25,6 +25,14 @@ extern u8 sBmMapUnitPool[], sBmMapTerrainPool[], sBmMapFogPool[], sBmMapHiddenPo
 extern const struct MenuDef VersusLobbyMenu, VersusResultMenu;
 extern struct Text VersusTexts[];
 extern const struct ProcCmd VersusTransportProc[];
+struct VersusOptions VersusOptions;
+struct VsRoster {
+    u8 classId, item, hp, power, speed, defense, resistance;
+};
+#include "catalog.h"
+int VersusCanSeize(int seat, int x, int y) {
+    return VersusOptions.objective != 0 && x == (seat ? 1 : 13) && y == 7;
+}
 int VersusActive(void) { return VS_RAM->magic == VS_MAGIC && VS_RAM->running; }
 static void zero(void *p, unsigned n) {
     u8 *b = p;
@@ -40,14 +48,21 @@ static void panel(void) {
     BG_EnableSyncByMask(BG0_SYNC_BIT | BG1_SYNC_BIT);
 }
 static void line(int row, const char *text) {
-    InitText(&VersusTexts[row], 25);
+    InitText(&VersusTexts[row], 13);
     PutDrawText(&VersusTexts[row], gBG0TilemapBuffer + 32 * (3 + row * 2) + 3,
-                TEXT_COLOR_SYSTEM_WHITE, 0, 25, text);
+                TEXT_COLOR_SYSTEM_WHITE, 0, 13, text);
     BG_EnableSyncByMask(BG0_SYNC_BIT);
 }
 void VersusOpenerText(void) {
-    line(2, VS_RAM->chosenOpener ? "Red opens. 30-round draw limit."
-                                 : "Blue opens. 30-round draw limit.");
+    static const char *names[3] = {"Forest forts", "Woodland", "Crossroads"};
+    static const char *goals[3] = {"Elimination", "Seizure", "Either"};
+    line(1, names[VersusOptions.chosenMap]);
+    line(2, goals[VersusOptions.chosenObjective]);
+    static const char *blue[3] = {"Blue: Balanced", "Blue: Mobile", "Blue: Vanguard"};
+    static const char *red[3] = {"Red: Balanced", "Red: Mobile", "Red: Vanguard"};
+    line(3, blue[VersusOptions.chosenBlue]);
+    line(4, red[VersusOptions.chosenRed]);
+    line(5, VS_RAM->chosenOpener ? "Red opens" : "Blue opens");
 }
 static void lobby(ProcPtr proc) {
     struct VersusContext *v = VS_RAM;
@@ -56,19 +71,20 @@ static void lobby(ProcPtr proc) {
     v->magic = VS_MAGIC;
     v->savedPlay = saved;
     v->round = 1;
+    zero(&VersusOptions, sizeof(VersusOptions));
     SetupBackgrounds(NULL);
     ResetKeyStatus(gKeyStatusPtr);
     ResetText();
     panel();
     line(0, "Fire Emblem Versus");
     line(1, "Five units. Real tactical battles.");
-    line(2, "Blue opens. 30-round draw limit.");
+    VersusOpenerText();
     StartMenu(&VersusLobbyMenu, proc);
 }
 static void fixtureMap(void) {
     struct VersusContext *v = VS_RAM;
     int x, y, k, terrain;
-    u16 tile[3] = {0, 0, 0};
+    u16 tile[4] = {0, 0, 0, 0};
     int found[3] = {0, 0, 0};
     /* Use actual FE8 tiles from the chapter's tileset, then rebuild all row pools. */
     for (y = 0; y < gBmMapSize.y; y++)
@@ -100,15 +116,19 @@ static void fixtureMap(void) {
         }
         v->mapTiles[k] = tile[k];
     }
+    tile[3] = tile[2];
+    for (x = 0; x < 0x400; x++)
+        if (gTilesetTerrainLookup[x] == TERRAIN_GATE_CASTLE) {
+            tile[3] = x * 4;
+            break;
+        }
     gBmMapSize.x = gBmMapSize.y = VS_MAP_SIZE;
     gBmMapBuffer[0] = VS_MAP_SIZE | (VS_MAP_SIZE << 8);
-    for (y = 0; y <= VS_MAP_SIZE; y++)
+    for (y = 0; y < VS_MAP_SIZE; y++)
         for (x = 0; x < VS_MAP_SIZE; x++) {
-            k = 0;
-            if ((x == 4 || x == 10) && (y == 4 || y == 5 || y == 9 || y == 10))
-                k = 1;
-            if ((x == 3 && y == 7) || (x == 11 && y == 7))
-                k = 2;
+            k = scenarioTiles[VersusOptions.map][y][x];
+            if (VersusOptions.objective && y == 7 && (x == 1 || x == 13))
+                k = 3;
             gBmMapBuffer[1 + y * VS_MAP_SIZE + x] = tile[k];
         }
     BmMapInit(sBmMapUnitPool, &gBmMapUnit, 15, 15);
@@ -123,42 +143,38 @@ static void fixtureMap(void) {
     BmMapFill(gBmMapFog, 1);
     InitBaseTilesBmMap();
     RefreshTerrainBmMap();
+    if (VersusOptions.objective) {
+        gBmMapTerrain[7][1] = gBmMapTerrain[7][13] = TERRAIN_GATE_CASTLE;
+    }
     gBmSt.cameraMax.x = 0;
     gBmSt.cameraMax.y = 80;
 }
 static void armies(void) {
     static const u8 chars[5] = {CHARACTER_EIRIKA, CHARACTER_GARCIA, CHARACTER_NEIMI, CHARACTER_LUTE,
                                 CHARACTER_MOULDER};
-    static const u8 classes[5] = {CLASS_MYRMIDON_F, CLASS_FIGHTER, CLASS_ARCHER_F, CLASS_MAGE_F,
-                                  CLASS_PRIEST};
-    static const u8 weapons[5] = {ITEM_SWORD_IRON, ITEM_AXE_IRON, ITEM_BOW_IRON, ITEM_ANIMA_FIRE,
-                                  ITEM_STAFF_HEAL};
-    static const u8 hp[5] = {28, 34, 26, 24, 28};
-    static const u8 power[5] = {9, 12, 9, 9, 7};
-    static const u8 speeds[5] = {12, 8, 10, 10, 8};
-    static const u8 defs[5] = {6, 8, 5, 4, 5};
     int s, i, j;
     InitUnits();
     for (s = 0; s < 2; s++)
         for (i = 0; i < 5; i++) {
             struct Unit *u = GetUnit((s ? 0x80 : 0) + i + 1);
+            const struct VsRoster *r = &roster[s ? VersusOptions.red : VersusOptions.blue][i];
             ClearUnit(u);
             u->pCharacterData = GetCharacterData(chars[i]);
-            u->pClassData = GetClassData(classes[i]);
+            u->pClassData = GetClassData(r->classId);
             u->level = 10;
             u->exp = 0xFF;
             u->xPos = s ? 12 : 2;
             u->yPos = 3 + 2 * i;
-            u->maxHP = u->curHP = hp[i];
-            u->pow = power[i];
+            u->maxHP = u->curHP = r->hp;
+            u->pow = r->power;
             u->skl = 10;
-            u->spd = speeds[i];
+            u->spd = r->speed;
             u->lck = 7;
-            u->def = defs[i];
-            u->res = i == 3 || i == 4 ? 9 : 3;
+            u->def = r->defense;
+            u->res = r->resistance;
             for (j = 0; j < 8; j++)
                 u->ranks[j] = 181;
-            u->items[0] = MakeNewItem(weapons[i]);
+            u->items[0] = MakeNewItem(r->item);
             u->items[1] = MakeNewItem(ITEM_VULNERARY);
         }
 }
@@ -170,6 +186,16 @@ static void begin(ProcPtr proc) {
     }
     Proc_EndEach(VersusTransportProc);
     v->hasCommand = v->executed = v->remoteReady = v->localDone = v->remoteDone = 0;
+    if (VersusOptions.chosenMap >= 3 || VersusOptions.chosenBlue >= 3 ||
+        VersusOptions.chosenRed >= 3 || VersusOptions.chosenObjective >= 3) {
+        VersusAbort(5);
+        return;
+    }
+    VersusOptions.map = VersusOptions.chosenMap;
+    VersusOptions.blue = VersusOptions.chosenBlue;
+    VersusOptions.red = VersusOptions.chosenRed;
+    VersusOptions.objective = VersusOptions.chosenObjective;
+    VersusOptions.victoryReason = 0;
     v->mode = v->chosenMode;
     v->opener = v->chosenOpener;
     v->activeSeat = v->opener;
@@ -219,6 +245,11 @@ static int living(int seat) {
 static void outcome(void) {
     struct VersusContext *v = VS_RAM;
     int a = living(0), b = living(1);
+    if (v->outcome)
+        return;
+    if (a && b)
+        return;
+    VersusOptions.victoryReason = VersusOptions.objective == 1 ? 4 : 1;
     if (!a && !b)
         v->outcome = VS_DRAW;
     else if (!a)
@@ -235,6 +266,7 @@ void VersusAdvancePhase(void) {
     v->activeSeat ^= 1;
     if (v->activeSeat == v->opener) {
         if (v->round == VS_ROUNDS) {
+            VersusOptions.victoryReason = 3;
             v->outcome = VS_DRAW;
             return;
         }
@@ -258,6 +290,10 @@ void VersusAdvancePhase(void) {
     SetCursorMapPosition(v->activeSeat ? 12 : 2, 7);
 }
 void VersusCompleteAction(void) {
+    if (VS_RAM->command.type == UNIT_ACTION_SEIZE) {
+        VS_RAM->outcome = VS_RAM->activeSeat ? VS_RED_WIN : VS_BLUE_WIN;
+        VersusOptions.victoryReason = 2;
+    }
     outcome();
     VersusFinishCommand();
 }
@@ -271,9 +307,10 @@ static void transport(ProcPtr proc) {
         v->executed = 1;
         EndPlayerPhaseSideWindows();
         Proc_EndEach(gProcScr_PlayerPhase);
-        if (v->command.type == VS_SURRENDER)
+        if (v->command.type == VS_SURRENDER) {
+            VersusOptions.victoryReason = 5;
             v->outcome = v->activeSeat ? VS_BLUE_WIN : VS_RED_WIN;
-        else
+        } else
             VersusAdvancePhase();
         VersusFinishCommand();
     }

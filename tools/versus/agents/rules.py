@@ -1,40 +1,59 @@
-"""Current ROM rules, exposed to players without changing the match simulation."""
+"""Describe the scenario catalog embedded in the selected ROM build."""
 
-RULES = {
-    "version": 1,
-    "party": {
-        "id": "mirrored-five-v1",
-        "size": 5,
-        "selection": "fixed_mirrored",
-        "roles": ["sword", "axe", "bow", "mage", "healer"],
-        "campaign_import": False,
-        "level": 10,
-        "experience_gain": False,
-    },
-    "map": {
-        "id": "forest-forts-15-v1",
-        "width": 15,
-        "height": 15,
-        "fog_of_war": False,
-        "blue_deployment": [[2, y] for y in [3, 5, 7, 9, 11]],
-        "red_deployment": [[12, y] for y in [3, 5, 7, 9, 11]],
-        "forts": [[3, 7], [11, 7]],
-        "castles": [],
-    },
-    "objective": {
-        "id": "elimination",
-        "win": "Eliminate all five opposing units, or accept their surrender.",
-        "seize_enabled": False,
-        "round_limit": 30,
-        "round_limit_result": "draw",
-        "mutual_elimination_result": "draw",
-    },
-    "outcomes": {
-        "0": "in_progress",
-        "1": "blue_win",
-        "2": "red_win",
-        "3": "draw",
-        "4": "aborted",
-    },
-    "turns": "Alternate whole-army phases; one round includes both armies.",
-}
+
+def describe(catalog, choices):
+    m, b, r, o = choices
+    arena = catalog["maps"][m]
+    objective = catalog["objectives"][o]
+    return {
+        "version": catalog["version"],
+        "parties": [
+            dict(
+                seat=s,
+                id=catalog["parties"][p]["id"],
+                size=5,
+                selection="curated_preset",
+                units=catalog["parties"][p]["units"],
+            )
+            for s, p in enumerate([b, r])
+        ],
+        "party": {
+            "size": 5,
+            "selection": "curated_preset",
+            "campaign_import": False,
+            "experience_gain": False,
+        },
+        "map": {
+            "id": arena["id"],
+            "width": arena["width"],
+            "height": arena["height"],
+            "fog_of_war": False,
+            "deployment": arena["deployment"],
+            "castles": (
+                [
+                    {"seat": s, "x": xy[0], "y": xy[1]}
+                    for s, xy in enumerate(arena["castles"])
+                ]
+                if o
+                else []
+            ),
+        },
+        "objective": {
+            "id": objective,
+            "seize_enabled": o != 0,
+            "elimination_enabled": o != 1,
+            "no_defenders_win": True,
+            "round_limit": catalog["round_limit"],
+            "round_limit_result": "draw",
+            "mutual_elimination_result": "draw",
+            "capture_rule": "Any living unspent friendly unit may move onto the enemy castle and spend its action to Seize.",
+        },
+        "outcomes": {
+            "0": "in_progress",
+            "1": "blue_win",
+            "2": "red_win",
+            "3": "draw",
+            "4": "aborted",
+        },
+        "turns": "Alternate whole-army phases; one round includes both armies.",
+    }

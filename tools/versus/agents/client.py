@@ -23,7 +23,7 @@ def call(path, body):
             "Content-Type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=45) as r:
+    with urllib.request.urlopen(req, timeout=60) as r:
         return json.load(r)
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Two isolated linked GBA cores, with serialized agent observations/actions."""
 
-from rules import RULES
+from rules import describe
 from pathlib import Path
 import json, subprocess, time, threading, uuid, struct, secrets, argparse, hashlib
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -10,7 +10,17 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class Session:
-    def __init__(self, red=False, evidence=None):
+    def __init__(
+        self,
+        red=False,
+        evidence=None,
+        map_id=0,
+        blue_party=0,
+        red_party=0,
+        objective=0,
+        peer_map=None,
+        peer_choices=None,
+    ):
         self.lock = threading.RLock()
         self.id = uuid.uuid4().hex
         self.keys = [secrets.token_urlsafe(24) for _ in range(2)]
@@ -21,6 +31,14 @@ class Session:
         self.log.mkdir(parents=True, exist_ok=False)
         manifest = json.loads((ROOT / "build/versus/manifest.json").read_text())
         self.manifest = manifest
+        catalog_bytes = (ROOT / "build/versus/catalog.json").read_bytes()
+        if hashlib.sha256(catalog_bytes).hexdigest() != manifest["catalog_sha256"]:
+            raise RuntimeError("Scenario catalog does not match ROM build")
+        self.catalog = json.loads(catalog_bytes)
+        choices = [map_id, blue_party, red_party, objective]
+        if any(type(v) is not int or v not in range(3) for v in choices):
+            raise ValueError("Unknown map, party, or objective")
+        self.choices = choices
         if (
             hashlib.sha256(
                 (ROOT / "build/versus/fire-emblem-versus.gba").read_bytes()
@@ -37,9 +55,18 @@ class Session:
             str(ROOT / "build/versus/agent-bridge"),
             str(ROOT / "build/versus/fire-emblem-versus.gba"),
             symbols["gBmMapTerrain"],
+            manifest["symbols"]["VersusOptions"].removeprefix("0x"),
+            str(int(red)),
+            *map(str, choices),
         ]
-        if red:
-            args.append("--red")
+        if peer_choices is not None:
+            if len(peer_choices) != 4 or any(
+                type(v) is not int or v not in range(3) for v in peer_choices
+            ):
+                raise ValueError("Unknown peer setup")
+            args.extend(map(str, peer_choices))
+        elif peer_map is not None:
+            args.append(str(peer_map))
         self.p = subprocess.Popen(
             args,
             cwd=ROOT,
@@ -52,9 +79,18 @@ class Session:
         assert json.loads(self.p.stdout.readline())["ready"]
         self.event(
             "start",
-            {"match": self.id, "manifest": manifest, "rules": RULES, "red_opener": red},
+            {
+                "match": self.id,
+                "manifest": manifest,
+                "rules": describe(self.catalog, self.choices),
+                "red_opener": red,
+            },
         )
-        self.stable()
+        try:
+            self.stable()
+        except Exception:
+            self.close()
+            raise
 
     def event(self, kind, data):
         with (self.log / "events.jsonl").open("a") as f:
@@ -72,10 +108,11 @@ class Session:
             )
         return json.loads(result)
 
-    def stable(self, deadline=15):
+    def stable(self, deadline=45):
         if self.failed:
             raise RuntimeError(self.failed)
         end = time.monotonic() + deadline
+        report_at = time.monotonic() + 15
         while time.monotonic() < end:
             a = self.rpc("observe 0")
             b = self.rpc("observe 1")
@@ -92,11 +129,36 @@ class Session:
                     "units",
                     "terrain",
                     "rng",
+                    "options",
                 ]
             ):
                 return a, b
+            if time.monotonic() >= report_at:
+                self.event("confirmation_delayed", {"blue": a, "red": b})
+                report_at = end + 1
             time.sleep(0.005)
-        raise TimeoutError("Peers did not reach the same confirmed state")
+        self.event("unconfirmed_peers", {"blue": a, "red": b})
+        raise TimeoutError(
+            "Peers did not reach the same confirmed state: "
+            + repr(
+                [
+                    {
+                        k: p[k]
+                        for k in [
+                            "seq",
+                            "hash",
+                            "state",
+                            "active",
+                            "error",
+                            "outcome",
+                            "rng",
+                            "options",
+                        ]
+                    }
+                    for p in [a, b]
+                ]
+            )
+        )
 
     def legal(self, seat, snapshot):
         key = (snapshot["seq"], snapshot["hash"], seat)
@@ -122,6 +184,7 @@ class Session:
                             2: "attack",
                             3: "heal",
                             26: "vulnerary",
+                            17: "seize",
                             240: "end",
                             241: "surrender",
                         }[kind],
@@ -147,6 +210,11 @@ class Session:
             s = peers[seat]
             units = []
             raw = bytes.fromhex(s["units"])
+            options = bytes.fromhex(s["options"])
+            selected = list(options[4:8])
+            if selected != self.choices:
+                raise RuntimeError("ROM selection differs from requested rules")
+            rules = describe(self.catalog, selected)
             for n in range(10):
                 b = raw[n * 72 : (n + 1) * 72]
                 state = int.from_bytes(b[12:16], "little")
@@ -154,7 +222,9 @@ class Session:
                     {
                         "id": (0 if n < 5 else 128) + n % 5 + 1,
                         "seat": n // 5,
-                        "role": ["sword", "axe", "bow", "mage", "healer"][n % 5],
+                        "role": self.catalog["parties"][selected[1 + n // 5]]["units"][
+                            n % 5
+                        ]["role"],
                         "x": b[16],
                         "y": b[17],
                         "hp": b[19],
@@ -178,7 +248,15 @@ class Session:
             )
             obs = {
                 "match_id": self.id,
-                "rules": RULES,
+                "rules": rules,
+                "victory_reason": {
+                    0: None,
+                    1: "elimination",
+                    2: "seizure",
+                    3: "round_limit",
+                    4: "no_defenders",
+                    5: "surrender",
+                }[options[8]],
                 "seat": seat,
                 "active_seat": s["active"],
                 "sequence": s["seq"],
@@ -327,5 +405,31 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--port", type=int, default=8768)
     p.add_argument("--red", action="store_true")
+    catalog = json.loads((ROOT / "versus/catalog.json").read_text())
+    p.add_argument(
+        "--map",
+        choices=[m["id"] for m in catalog["maps"]],
+        default=catalog["maps"][0]["id"],
+    )
+    p.add_argument(
+        "--blue-party",
+        choices=[m["id"] for m in catalog["parties"]],
+        default="balanced",
+    )
+    p.add_argument(
+        "--red-party", choices=[m["id"] for m in catalog["parties"]], default="balanced"
+    )
+    p.add_argument("--objective", choices=catalog["objectives"], default="elimination")
     a = p.parse_args()
-    serve(Session(red=a.red), a.port)
+    maps = [m["id"] for m in catalog["maps"]]
+    parties = [m["id"] for m in catalog["parties"]]
+    serve(
+        Session(
+            red=a.red,
+            map_id=maps.index(a.map),
+            blue_party=parties.index(a.blue_party),
+            red_party=parties.index(a.red_party),
+            objective=catalog["objectives"].index(a.objective),
+        ),
+        a.port,
+    )

@@ -72,3 +72,9 @@ if "--linked" in sys.argv:
 
 if "--agents" in sys.argv:
     run([sys.executable, "tools/versus/agents/check.py"], timeout=300)
+
+if "--scenarios" in sys.argv:
+    run([sys.executable, "tools/versus/tests/lobby_scenarios.py"], timeout=60)
+    run([sys.executable, "tools/versus/tests/seize_invalid.py"], timeout=60)
+    run([sys.executable, "tools/versus/tests/seize_ui.py"], timeout=60)
+    run([sys.executable, "tools/versus/agents/scenarios.py"], timeout=900)

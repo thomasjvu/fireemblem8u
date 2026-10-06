@@ -10,6 +10,6 @@ test:
 test-linked:
 	python3 tools/versus/test.py --linked
 test-agents:
-	python3 tools/versus/test.py --linked --agents
+	python3 tools/versus/test.py --linked --agents --scenarios
 clean:
 	rm -rf build/versus
