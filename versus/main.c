@@ -82,44 +82,19 @@ static void lobby(ProcPtr proc) {
 static void fixtureMap(void) {
     struct VersusContext *v = VS_RAM;
     int x, y, k, terrain;
-    u16 tile[4] = {0, 0, 0, 0};
-    int found[3] = {0, 0, 0};
-    /* Use actual FE8 tiles from the chapter's tileset, then rebuild all row pools. */
-    for (y = 0; y < gBmMapSize.y; y++)
-        for (x = 0; x < gBmMapSize.x; x++) {
-            terrain = gBmMapTerrain[y][x];
-            k = terrain == TERRAIN_PLAINS   ? 0
-                : terrain == TERRAIN_FOREST ? 1
-                : terrain == TERRAIN_FORT   ? 2
-                                            : -1;
-            if (k >= 0 && !found[k]) {
-                tile[k] = gBmMapBaseTiles[y][x];
-                found[k] = 1;
-            }
-        }
-    for (k = 0; k < 3; k++)
-        if (!found[k])
-            for (x = 0; x < 0x400; x++) {
-                terrain = k == 0 ? TERRAIN_PLAINS : k == 1 ? TERRAIN_FOREST : TERRAIN_FORT;
-                if (gTilesetTerrainLookup[x] == terrain) {
-                    tile[k] = x * 4;
-                    found[k] = 1;
-                    break;
-                }
-            }
+    /* Quiet grass, interior pine canopy, and the native fort.
+     * Castle objectives use the fort silhouette and explicit gate terrain below.
+     * These indices belong to chapter 0's fixed outdoor tileset.
+     */
+    u16 tile[4] = {6 * 4, 880 * 4, 932 * 4, 932 * 4};
     for (k = 0; k < 3; k++) {
-        if (!found[k]) {
+        terrain = k == 0 ? TERRAIN_PLAINS : k == 1 ? TERRAIN_FOREST : TERRAIN_FORT;
+        if (gTilesetTerrainLookup[tile[k] >> 2] != terrain) {
             VersusAbort(11);
             return;
         }
         v->mapTiles[k] = tile[k];
     }
-    tile[3] = tile[2];
-    for (x = 0; x < 0x400; x++)
-        if (gTilesetTerrainLookup[x] == TERRAIN_GATE_CASTLE) {
-            tile[3] = x * 4;
-            break;
-        }
     gBmMapSize.x = gBmMapSize.y = VS_MAP_SIZE;
     gBmMapBuffer[0] = VS_MAP_SIZE | (VS_MAP_SIZE << 8);
     for (y = 0; y < VS_MAP_SIZE; y++)
@@ -209,6 +184,8 @@ static void begin(ProcPtr proc) {
     gPlaySt.chapterWeatherId = 0;
     gPlaySt.tutorial_counter = 0;
     StartBattleMap(NULL);
+    ReadGameSaveCoreGfx();
+    InitSystemTextFont();
     fixtureMap();
     armies();
     gPlaySt.faction = v->activeSeat ? FACTION_RED : FACTION_BLUE;
