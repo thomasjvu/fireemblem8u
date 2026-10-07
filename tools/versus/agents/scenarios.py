@@ -13,7 +13,7 @@ from check import body, choose
 def verify_deployment(o, map_id, blue_party, red_party):
     # Assert against the selected catalog, rather than just peer agreement.
     expected = [
-        [(1, 12, 10, 2, 44, 11)[tile] for tile in row]
+        [(1, 12, 10, 2, 44, 11, 16, 19)[tile] for tile in row]
         for row in CATALOG["maps"][map_id]["tiles"]
     ]
     assert o["terrain"] == expected, "Native terrain differs from catalog"

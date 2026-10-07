@@ -220,7 +220,7 @@ def main():
             or m["height"] != 15
             or len(m["tiles"]) != 15
             or any(
-                len(row) != 15 or any(v not in range(6) for v in row)
+                len(row) != 15 or any(v not in range(8) for v in row)
                 for row in m["tiles"]
             )
         ):
@@ -240,7 +240,7 @@ def main():
             (
                 m["tiles"][y][x] != castle_cells[(x, y)]
                 if (x, y) in castle_cells
-                else m["tiles"][y][x] >= 4
+                else m["tiles"][y][x] in [4, 5]
             )
             for y in range(15)
             for x in range(15)
@@ -260,7 +260,7 @@ def main():
             x, y = pending.pop()
             if (x, y) in visited or not (0 <= x < 15 and 0 <= y < 15):
                 continue
-            if m["tiles"][y][x] == 4:
+            if m["tiles"][y][x] in [4, 6]:
                 continue
             visited.add((x, y))
             pending.extend([(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)])
