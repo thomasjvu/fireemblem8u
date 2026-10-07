@@ -13,10 +13,9 @@ from check import body, choose
 def verify_deployment(o, map_id, blue_party, red_party):
     # Assert against the selected catalog, rather than just peer agreement.
     expected = [
-        [(1, 12, 10)[tile] for tile in row] for row in CATALOG["maps"][map_id]["tiles"]
+        [(1, 12, 10, 2, 44, 11)[tile] for tile in row]
+        for row in CATALOG["maps"][map_id]["tiles"]
     ]
-    if o["rules"]["objective"]["seize_enabled"]:
-        expected[7][1] = expected[7][13] = 11
     assert o["terrain"] == expected, "Native terrain differs from catalog"
     for u in o["units"]:
         seat = u["seat"]
@@ -56,7 +55,7 @@ def capture(map_id, objective, seat, blue_party=0, red_party=0):
                 o["rules"]["parties"][1]["id"] == s.catalog["parties"][red_party]["id"]
             )
             assert all(
-                (a["x"], a["y"]) == ((13, 7) if o["seat"] == 0 else (1, 7))
+                (a["x"], a["y"]) == ((7, 1) if o["seat"] == 0 else (7, 13))
                 for a in actions
                 if a["type"] == "seize"
             )
@@ -90,9 +89,9 @@ def capture(map_id, objective, seat, blue_party=0, red_party=0):
                         for a in actions
                         if a["type"] == "wait" and a["actor"] == (129 if seat else 1)
                     ]
-                    tx = 1 if seat else 13
+                    ty = 13 if seat else 1
                     a = (
-                        min(moves, key=lambda a: abs(a["x"] - tx) + abs(a["y"] - 7))
+                        min(moves, key=lambda a: abs(a["x"] - 7) + abs(a["y"] - ty))
                         if moves
                         else next(a for a in actions if a["type"] == "end")
                     )

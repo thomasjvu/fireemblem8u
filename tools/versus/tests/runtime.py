@@ -34,19 +34,19 @@ try:
  g.key(0x100);g.key(2);g.check(0,0)
  assert tiles==[g.read(0x6008400+i*4) for i in range(24)]
  # Cancel a movement preview before committing an action.
- for k in [1,0x10,2]:g.key(k)
+ for k in [1,0x40,2]:g.key(k)
  g.check(0,0)
- assert g.read(0x202be4c+2*72+0x10,8)==2
- # Select Neimi, move east, choose Wait through the actual native menus.
- for k in [1,0x10,1,0x80,1]:g.key(k)
+ assert g.read(0x202be4c+2*72+0x11,8)==12
+ # Select Neimi, move north, choose Wait through the actual native menus.
+ for k in [1,0x40,1,0x80,1]:g.key(k)
  g.frames(180);g.check(1,0)
- assert g.read(0x202be4c+2*72+0x10,8)==3
+ assert g.read(0x202be4c+2*72+0x11,8)==11
  # Native map End menu on the spent unit.
  g.key(1);g.key(1);g.frames(180);g.check(2,1)
  # Red archer is controllable through the same native move/Wait path.
- for k in [1,0x20,1,0x80,1]:g.key(k)
+ for k in [1,0x80,1,0x80,1]:g.key(k)
  g.frames(180);g.check(3,1)
- assert g.read(0x202cfbc+2*72+0x10,8)==11
+ assert g.read(0x202cfbc+2*72+0x11,8)==3
  g.cmd(0xf0);g.check(4,0)
  # Surrender produces a result screen without writing campaign data.
  g.cmd(0xf1);assert g.read(0x203f358,8)==2;assert g.read(0x203f35c,8)==0

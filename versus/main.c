@@ -32,7 +32,7 @@ struct VsRoster {
 #include "catalog_counts.h"
 #include "catalog.h"
 int VersusCanSeize(int seat, int x, int y) {
-    return VersusOptions.objective != 0 && x == (seat ? 1 : 13) && y == 7;
+    return VersusOptions.objective != 0 && x == 7 && y == (seat ? 13 : 1);
 }
 int VersusActive(void) { return VS_RAM->magic == VS_MAGIC && VS_RAM->running; }
 static void zero(void *p, unsigned n) {
@@ -81,28 +81,51 @@ static void lobby(ProcPtr proc) {
 }
 static void fixtureMap(void) {
     struct VersusContext *v = VS_RAM;
-    int x, y, k, terrain;
-    /* Quiet grass, interior pine canopy, and the native fort.
-     * Castle objectives use the fort silhouette and explicit gate terrain below.
-     * These indices belong to chapter 0's fixed outdoor tileset.
+    int x, y, k;
+    u16 tile[6] = {6 * 4, 881 * 4, 868 * 4, 724 * 4, 877 * 4, 910 * 4};
+    /* A full three-column native castle, with the southern castle facing north.
+     * The final six metatile slots are private to Versus. Each consists of four
+     * 8x8 characters; reverse the rows and flip each character vertically.
      */
-    u16 tile[4] = {6 * 4, 880 * 4, 932 * 4, 932 * 4};
-    for (k = 0; k < 3; k++) {
-        terrain = k == 0 ? TERRAIN_PLAINS : k == 1 ? TERRAIN_FOREST : TERRAIN_FORT;
-        if (gTilesetTerrainLookup[tile[k] >> 2] != terrain) {
-            VersusAbort(11);
-            return;
-        }
-        v->mapTiles[k] = tile[k];
+    u16 *config = (u16 *)(gTilesetTerrainLookup - 0x2000);
+    static const u16 castle[6] = {877, 878, 879, 909, 910, 911};
+    for (k = 0; k < 6; k++) {
+        u16 *source = config + castle[k] * 4;
+        u16 *dest = config + (960 + k) * 4;
+        dest[0] = source[2] ^ 0x0800;
+        dest[1] = source[3] ^ 0x0800;
+        dest[2] = source[0] ^ 0x0800;
+        dest[3] = source[1] ^ 0x0800;
+        gTilesetTerrainLookup[960 + k] = gTilesetTerrainLookup[castle[k]];
     }
+    for (k = 0; k < 3; k++)
+        v->mapTiles[k] = tile[k];
     gBmMapSize.x = gBmMapSize.y = VS_MAP_SIZE;
     gBmMapBuffer[0] = VS_MAP_SIZE | (VS_MAP_SIZE << 8);
     for (y = 0; y < VS_MAP_SIZE; y++)
         for (x = 0; x < VS_MAP_SIZE; x++) {
-            k = scenarioTiles[VersusOptions.map][y][x];
-            if (VersusOptions.objective && y == 7 && (x == 1 || x == 13))
-                k = 3;
-            gBmMapBuffer[1 + y * VS_MAP_SIZE + x] = tile[k];
+            const u8(*map)[15] = scenarioTiles[VersusOptions.map];
+            u16 chosen;
+            k = map[y][x];
+            chosen = tile[k];
+            if (k == 1) {
+                int left = x > 0 && map[y][x - 1] == 1;
+                int right = x < 14 && map[y][x + 1] == 1;
+                chosen = (left && right ? 881 : right ? 880 : 882) * 4;
+            } else if (k == 2) {
+                chosen = (x > 0 && map[y][x - 1] == 2 ? 869 : 868) * 4;
+            } else if (k == 3) {
+                int horizontal = (x > 0 && map[y][x - 1] == 3) || (x < 14 && map[y][x + 1] == 3);
+                int vertical = (y > 0 && map[y - 1][x] == 3) || (y < 14 && map[y + 1][x] == 3);
+                chosen = (horizontal && vertical ? 724 : horizontal ? 788 : 762) * 4;
+            } else if (k >= 4) {
+                int column = x - 6;
+                if (y <= 1)
+                    chosen = castle[y * 3 + column] * 4;
+                else
+                    chosen = (960 + (14 - y) * 3 + column) * 4;
+            }
+            gBmMapBuffer[1 + y * VS_MAP_SIZE + x] = chosen;
         }
     BmMapInit(sBmMapUnitPool, &gBmMapUnit, 15, 15);
     BmMapInit(sBmMapTerrainPool, &gBmMapTerrain, 15, 15);
@@ -116,15 +139,13 @@ static void fixtureMap(void) {
     BmMapFill(gBmMapFog, 1);
     InitBaseTilesBmMap();
     RefreshTerrainBmMap();
-    if (VersusOptions.objective) {
-        gBmMapTerrain[7][1] = gBmMapTerrain[7][13] = TERRAIN_GATE_CASTLE;
-    }
     gBmSt.cameraMax.x = 0;
     gBmSt.cameraMax.y = 80;
 }
 static void armies(void) {
     static const u8 chars[5] = {CHARACTER_EIRIKA, CHARACTER_GARCIA, CHARACTER_NEIMI, CHARACTER_LUTE,
                                 CHARACTER_MOULDER};
+    static const u8 deploymentX[5] = {3, 5, 6, 9, 11};
     int s, i, j;
     InitUnits();
     for (s = 0; s < 2; s++)
@@ -136,8 +157,8 @@ static void armies(void) {
             u->pClassData = GetClassData(r->classId);
             u->level = 20;
             u->exp = 0xFF;
-            u->xPos = s ? 12 : 2;
-            u->yPos = 3 + 2 * i;
+            u->xPos = deploymentX[i];
+            u->yPos = s ? 2 : 12;
             u->maxHP = u->curHP = r->hp;
             u->pow = r->power;
             u->skl = 10;
@@ -160,7 +181,8 @@ static void begin(ProcPtr proc) {
     Proc_EndEach(VersusTransportProc);
     v->hasCommand = v->executed = v->remoteReady = v->localDone = v->remoteDone = 0;
     if (VersusOptions.chosenMap >= VS_MAP_COUNT || VersusOptions.chosenBlue >= VS_PARTY_COUNT ||
-        VersusOptions.chosenRed >= VS_PARTY_COUNT || VersusOptions.chosenObjective >= VS_OBJECTIVE_COUNT) {
+        VersusOptions.chosenRed >= VS_PARTY_COUNT ||
+        VersusOptions.chosenObjective >= VS_OBJECTIVE_COUNT) {
         VersusAbort(5);
         return;
     }
@@ -192,13 +214,13 @@ static void begin(ProcPtr proc) {
     gPlaySt.chapterTurnNumber = 1;
     gPlaySt.chapterVisionRange = 0;
     gBmSt.gameStateBits = 0;
-    gBmSt.camera.y = 40;
+    gBmSt.camera.y = v->activeSeat ? 0 : 80;
     BMapVSync_Start();
     Proc_Start(gProc_MapTask, PROC_TREE_4);
     RefreshEntityBmMaps();
     RenderBmMap();
     RefreshUnitSprites();
-    SetCursorMapPosition(v->activeSeat ? 12 : 2, 7);
+    SetCursorMapPosition(6, v->activeSeat ? 2 : 12);
     InitRN(7);
     v->running = 1;
     VersusSealState();
@@ -262,7 +284,7 @@ void VersusAdvancePhase(void) {
     }
     RefreshEntityBmMaps();
     RefreshUnitSprites();
-    SetCursorMapPosition(v->activeSeat ? 12 : 2, 7);
+    SetCursorMapPosition(6, v->activeSeat ? 2 : 12);
 }
 void VersusCompleteAction(void) {
     if (VS_RAM->command.type == UNIT_ACTION_SEIZE) {

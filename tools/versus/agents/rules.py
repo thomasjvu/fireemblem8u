@@ -29,6 +29,12 @@ def describe(catalog, choices):
             "width": arena["width"],
             "height": arena["height"],
             "fog_of_war": False,
+            "orientation": {"blue": "south", "red": "north"},
+            "design": arena.get("design", ""),
+            "terrain_legend": [
+                {"terrain_id": t["native"], "name": t["name"]}
+                for t in catalog.get("terrain_types", [])
+            ],
             "deployment": arena["deployment"],
             "castles": (
                 [

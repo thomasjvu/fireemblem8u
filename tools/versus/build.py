@@ -220,24 +220,57 @@ def main():
             or m["height"] != 15
             or len(m["tiles"]) != 15
             or any(
-                len(row) != 15 or any(v not in [0, 1, 2] for v in row)
+                len(row) != 15 or any(v not in range(6) for v in row)
                 for row in m["tiles"]
             )
         ):
             raise SystemExit("Maps must contain 15x15 supported terrain tiles")
         if any(
-            m["tiles"][y][x] != m["tiles"][y][14 - x]
+            m["tiles"][y][x] != m["tiles"][14 - y][x]
             for y in range(15)
             for x in range(15)
         ):
             raise SystemExit("Maps must mirror terrain between armies")
-        if m["castles"] != [[1, 7], [13, 7]] or m["deployment"] != [
-            [[2, y] for y in [3, 5, 7, 9, 11]],
-            [[12, y] for y in [3, 5, 7, 9, 11]],
+        castle_cells = {
+            (x, y): 5 if x == 7 and y in [1, 13] else 4
+            for y in [0, 1, 13, 14]
+            for x in [6, 7, 8]
+        }
+        if any(
+            (
+                m["tiles"][y][x] != castle_cells[(x, y)]
+                if (x, y) in castle_cells
+                else m["tiles"][y][x] >= 4
+            )
+            for y in range(15)
+            for x in range(15)
+        ):
+            raise SystemExit("Castle terrain must match the native castle footprint")
+        if m["castles"] != [[7, 13], [7, 1]] or m["deployment"] != [
+            [[x, 12] for x in [3, 5, 6, 9, 11]],
+            [[x, 2] for x in [3, 5, 6, 9, 11]],
         ]:
             raise SystemExit(
                 "Catalog geometry must match native deployment and castles"
             )
+        # Ground units must connect from every deployment to both gates.
+        visited = set()
+        pending = [tuple(m["castles"][0])]
+        while pending:
+            x, y = pending.pop()
+            if (x, y) in visited or not (0 <= x < 15 and 0 <= y < 15):
+                continue
+            if m["tiles"][y][x] == 4:
+                continue
+            visited.add((x, y))
+            pending.extend([(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)])
+        required = m["castles"] + m["deployment"][0] + m["deployment"][1]
+        if any(tuple(xy) not in visited for xy in required):
+            raise SystemExit(
+                "Every deployment and castle must connect for ground units"
+            )
+        if any(m["tiles"][y][x] != 0 for side in m["deployment"] for x, y in side):
+            raise SystemExit("Deployments must start on equal open terrain")
     for p in catalog["parties"]:
         if [u["role"] for u in p["units"]] != catalog["roles"]:
             raise SystemExit("Each party must contain the five ordered roles")

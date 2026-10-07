@@ -58,9 +58,9 @@ static void callback(struct mCoreThread *t) {
      * exercising the proposing player's acknowledgement wait in ApplyUnitAction. */
     if (f > 600 && c->busRead32(c, 0x0203f004) == 0 && c->busRead8(c, 0x0203f353) == 1 &&
         c->busRead8(c, 0x0203f354) == c->busRead8(c, 0x0203f355) && p->uiStep < 5) {
-        unsigned keys[5] = {1, 0x10, 1, 0x80, 1};
+        unsigned keys[5] = {1, 0x40, 1, 0x80, 1};
         if (redOpener)
-            keys[1] = 0x20;
+            keys[1] = 0x80;
         c->setKeys(c, (f % 30 < 3) ? keys[p->uiStep] : 0);
         if (f % 30 == 3)
             p->uiStep++;
@@ -99,6 +99,9 @@ static void callback(struct mCoreThread *t) {
         }
         if (seq == 7)
             kind = 0xf1;
+        unsigned oldX = x;
+        x = y;
+        y = 14 - oldX;
         c->busWrite8(c, 0x0203f812, actor);
         c->busWrite8(c, 0x0203f813, target);
         c->busWrite32(c, 0x0203f814, x | (y << 8) | (kind << 16) | (item << 24));
