@@ -3,6 +3,7 @@
 
 from rules import describe
 from pathlib import Path
+import os
 import json, subprocess, time, threading, uuid, struct, secrets, argparse, hashlib
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
@@ -20,6 +21,7 @@ class Session:
         objective=0,
         peer_map=None,
         peer_choices=None,
+        video=False,
     ):
         self.lock = threading.RLock()
         self.id = uuid.uuid4().hex
@@ -77,9 +79,16 @@ class Session:
             args.extend(map(str, peer_choices))
         elif peer_map is not None:
             args.append(str(peer_map))
+        frames = self.log / "frames"
+        if video:
+            frames.mkdir()
         self.p = subprocess.Popen(
             args,
             cwd=ROOT,
+            env={
+                **os.environ,
+                "VERSUS_FRAME_DIRECTORY": str(frames.resolve()) if video else "",
+            },
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=(self.log / "emulator.log").open("w"),

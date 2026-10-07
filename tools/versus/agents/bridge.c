@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 struct Player {
     struct mCoreThread thread;
     struct mLockstepThreadUser user;
@@ -23,6 +26,7 @@ struct Player {
 };
 static struct Player players[2];
 static int redOpener;
+static const char *frameDirectory;
 static void stopped(struct mLockstepUser *u) { (void)u; }
 static void quiet(struct mLogger *l, int c, enum mLogLevel v, const char *fmt, va_list args) {
     (void)l;
@@ -46,6 +50,31 @@ static void callback(struct mCoreThread *t) {
     struct Player *p = t->userData;
     struct mCore *c = t->core;
     unsigned f = c->frameCounter(c), keys = 0;
+    /* Export native video independently of command/confirmation waits. */
+    if (frameDirectory && frameDirectory[0] && f % 4 == 0) {
+        char path[4096], temporary[4096];
+        unsigned seat = p == &players[1];
+        snprintf(path, sizeof(path), "%s/seat-%u.ppm", frameDirectory, seat);
+        snprintf(temporary, sizeof(temporary), "%s/seat-%u.tmp", frameDirectory, seat);
+        FILE *frame = fopen(temporary, "wb");
+        if (frame) {
+            unsigned char rgb[240 * 160 * 3];
+            for (unsigned i = 0; i < 240 * 160; i++) {
+                rgb[i * 3] = p->pixels[i] & 255;
+                rgb[i * 3 + 1] = (p->pixels[i] >> 8) & 255;
+                rgb[i * 3 + 2] = (p->pixels[i] >> 16) & 255;
+            }
+            fprintf(frame, "P6\n240 160\n255\n");
+            fwrite(rgb, 1, sizeof(rgb), frame);
+            fclose(frame);
+#ifdef _WIN32
+            MoveFileExA(temporary, path, MOVEFILE_REPLACE_EXISTING);
+#else
+            rename(temporary, path);
+#endif
+        }
+    }
+
     if (f == 120)
         c->busWrite32(c, 0x0203eff0, 0x56534254);
     if (f >= 200 && f < 203)
@@ -117,6 +146,7 @@ int main(int argc, char **argv) {
         return 2;
     if (argc < 9)
         return 2;
+    frameDirectory = getenv("VERSUS_FRAME_DIRECTORY");
     terrainAddress = strtoul(argv[2], NULL, 16);
     optionsAddress = strtoul(argv[3], NULL, 16);
     redOpener = atoi(argv[4]);
