@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "roles": [
     "sword",
     "axe",
@@ -791,6 +791,230 @@
         }
       ],
       "name": "Veterans"
+    },
+    {
+      "id": "storm",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_MYRMIDON_F",
+          "item_symbol": "ITEM_SWORD_IRON",
+          "hp": 26,
+          "power": 9,
+          "speed": 13,
+          "defense": 4,
+          "resistance": 5
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_FIGHTER",
+          "item_symbol": "ITEM_AXE_HANDAXE",
+          "hp": 30,
+          "power": 10,
+          "speed": 10,
+          "defense": 5,
+          "resistance": 4
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_IRON",
+          "hp": 24,
+          "power": 9,
+          "speed": 12,
+          "defense": 4,
+          "resistance": 4
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_MAGE_F",
+          "item_symbol": "ITEM_ANIMA_THUNDER",
+          "hp": 24,
+          "power": 11,
+          "speed": 12,
+          "defense": 3,
+          "resistance": 10
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_PRIEST",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 26,
+          "power": 8,
+          "speed": 9,
+          "defense": 4,
+          "resistance": 10
+        }
+      ],
+      "name": "Storm"
+    },
+    {
+      "id": "reapers",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_MERCENARY",
+          "item_symbol": "ITEM_SWORD_KILLER",
+          "hp": 28,
+          "power": 8,
+          "speed": 10,
+          "defense": 6,
+          "resistance": 2
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_FIGHTER",
+          "item_symbol": "ITEM_AXE_KILLER",
+          "hp": 32,
+          "power": 10,
+          "speed": 7,
+          "defense": 7,
+          "resistance": 2
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_KILLER",
+          "hp": 24,
+          "power": 8,
+          "speed": 9,
+          "defense": 4,
+          "resistance": 3
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_SHAMAN_F",
+          "item_symbol": "ITEM_DARK_FLUX",
+          "hp": 24,
+          "power": 9,
+          "speed": 8,
+          "defense": 3,
+          "resistance": 8
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_PRIEST",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 26,
+          "power": 7,
+          "speed": 8,
+          "defense": 4,
+          "resistance": 9
+        }
+      ],
+      "name": "Reapers"
+    },
+    {
+      "id": "onslaught",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_MYRMIDON_F",
+          "item_symbol": "ITEM_SWORD_BRAVE",
+          "hp": 28,
+          "power": 7,
+          "speed": 8,
+          "defense": 5,
+          "resistance": 2
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_FIGHTER",
+          "item_symbol": "ITEM_AXE_BRAVE",
+          "hp": 32,
+          "power": 9,
+          "speed": 6,
+          "defense": 6,
+          "resistance": 2
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_BRAVE",
+          "hp": 24,
+          "power": 7,
+          "speed": 7,
+          "defense": 4,
+          "resistance": 2
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_MAGE_F",
+          "item_symbol": "ITEM_ANIMA_FIRE",
+          "hp": 22,
+          "power": 8,
+          "speed": 9,
+          "defense": 3,
+          "resistance": 7
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_PRIEST",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 26,
+          "power": 6,
+          "speed": 7,
+          "defense": 4,
+          "resistance": 8
+        }
+      ],
+      "name": "Onslaught"
+    },
+    {
+      "id": "wardens",
+      "units": [
+        {
+          "role": "sword",
+          "class_symbol": "CLASS_MERCENARY",
+          "item_symbol": "ITEM_SWORD_IRON",
+          "hp": 34,
+          "power": 8,
+          "speed": 8,
+          "defense": 10,
+          "resistance": 6
+        },
+        {
+          "role": "axe",
+          "class_symbol": "CLASS_FIGHTER",
+          "item_symbol": "ITEM_AXE_HANDAXE",
+          "hp": 38,
+          "power": 10,
+          "speed": 6,
+          "defense": 10,
+          "resistance": 5
+        },
+        {
+          "role": "bow",
+          "class_symbol": "CLASS_ARCHER_F",
+          "item_symbol": "ITEM_BOW_LONGBOW",
+          "hp": 30,
+          "power": 8,
+          "speed": 7,
+          "defense": 8,
+          "resistance": 6
+        },
+        {
+          "role": "mage",
+          "class_symbol": "CLASS_SHAMAN_F",
+          "item_symbol": "ITEM_DARK_FLUX",
+          "hp": 28,
+          "power": 9,
+          "speed": 6,
+          "defense": 6,
+          "resistance": 11
+        },
+        {
+          "role": "healer",
+          "class_symbol": "CLASS_PRIEST",
+          "item_symbol": "ITEM_STAFF_HEAL",
+          "hp": 32,
+          "power": 9,
+          "speed": 7,
+          "defense": 7,
+          "resistance": 12
+        }
+      ],
+      "name": "Wardens"
     }
   ],
   "maps": [
