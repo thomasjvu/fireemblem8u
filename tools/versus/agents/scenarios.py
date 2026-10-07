@@ -22,6 +22,7 @@ def verify_deployment(o, map_id, blue_party, red_party):
         seat = u["seat"]
         index = (u["id"] & 127) - 1
         preset = CATALOG["parties"][[blue_party, red_party][seat]]["units"][index]
+        assert u["level"] == 20
         assert u["max_hp"] == preset["hp"]
         for key in ["power", "speed", "defense", "resistance", "role"]:
             assert u[key] == preset[key], (key, u, preset)

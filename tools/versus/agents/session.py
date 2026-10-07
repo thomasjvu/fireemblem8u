@@ -232,6 +232,7 @@ class Session:
                     {
                         "id": (0 if n < 5 else 128) + n % 5 + 1,
                         "seat": n // 5,
+                        "level": b[8],
                         "role": self.catalog["parties"][selected[1 + n // 5]]["units"][
                             n % 5
                         ]["role"],

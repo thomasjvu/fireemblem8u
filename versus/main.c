@@ -159,7 +159,7 @@ static void armies(void) {
             ClearUnit(u);
             u->pCharacterData = GetCharacterData(chars[i]);
             u->pClassData = GetClassData(r->classId);
-            u->level = 10;
+            u->level = 20;
             u->exp = 0xFF;
             u->xPos = s ? 12 : 2;
             u->yPos = 3 + 2 * i;

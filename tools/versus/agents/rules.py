@@ -19,6 +19,7 @@ def describe(catalog, choices):
         ],
         "party": {
             "size": 5,
+            "level": 20,
             "selection": "curated_preset",
             "campaign_import": False,
             "experience_gain": False,
