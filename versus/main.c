@@ -84,7 +84,7 @@ static void fixtureMap(void) {
     int x, y, k;
     u16 tile[8] = {6 * 4, 881 * 4, 868 * 4, 724 * 4, 877 * 4, 910 * 4, 634 * 4, 34 * 4};
     /* A full three-column native castle, with the southern castle facing north.
-     * The final six metatile slots are private to Versus. Each consists of four
+     * Metatile slots 960 onward are private to Versus. Each consists of four
      * 8x8 characters; reverse the rows and flip each character vertically.
      */
     u16 *config = (u16 *)(gTilesetTerrainLookup - 0x2000);
@@ -98,10 +98,25 @@ static void fixtureMap(void) {
         dest[3] = source[1] ^ 0x0800;
         gTilesetTerrainLookup[960 + k] = gTilesetTerrainLookup[castle[k]];
     }
-    /* Mirror the northern shoreline for a clean southern bank. */
-    for (k = 0; k < 4; k++)
-        config[966 * 4 + k] = config[603 * 4 + (k ^ 2)] ^ 0x0800;
-    gTilesetTerrainLookup[966] = TERRAIN_RIVER;
+    /* Mirror banks and corner banks so enclosed ponds join on every edge.
+     * Native terrain remains river even where the art includes a grassy bank. */
+    /* Build corner metatiles from matching 8x8 bank quadrants. Whole diagonal
+     * tiles carve oversized notches in small ponds. */
+    config[969 * 4] = config[597 * 4];
+    config[969 * 4 + 1] = config[603 * 4 + 1];
+    config[969 * 4 + 2] = config[636 * 4 + 2];
+    config[969 * 4 + 3] = config[703 * 4 + 3];
+    config[970 * 4] = config[603 * 4];
+    config[970 * 4 + 1] = config[596 * 4 + 1];
+    config[970 * 4 + 2] = config[703 * 4 + 2];
+    config[970 * 4 + 3] = config[605 * 4 + 3];
+    gTilesetTerrainLookup[969] = gTilesetTerrainLookup[970] = TERRAIN_RIVER;
+    static const u16 banks[3] = {603, 969, 970};
+    for (int bank = 0; bank < 3; bank++) {
+        for (k = 0; k < 4; k++)
+            config[(966 + bank) * 4 + k] = config[banks[bank] * 4 + (k ^ 2)] ^ 0x0800;
+        gTilesetTerrainLookup[966 + bank] = TERRAIN_RIVER;
+    }
     for (k = 0; k < 3; k++)
         v->mapTiles[k] = tile[k];
     gBmMapSize.x = gBmMapSize.y = VS_MAP_SIZE;
@@ -127,7 +142,16 @@ static void fixtureMap(void) {
                 int south = y < 14 && map[y + 1][x] != 6 && map[y + 1][x] != 7;
                 int west = x > 0 && map[y][x - 1] != 6 && map[y][x - 1] != 7;
                 int east = x < 14 && map[y][x + 1] != 6 && map[y][x + 1] != 7;
-                chosen = (north ? 603 : south ? 966 : west ? 636 : east ? 605 : 634) * 4;
+                chosen = (north && west   ? 597
+                          : north && east ? 970
+                          : south && west ? 967
+                          : south && east ? 968
+                          : north         ? 603
+                          : south         ? 966
+                          : west          ? 636
+                          : east          ? 605
+                                          : 703) *
+                         4;
             } else if (k == 7) {
                 chosen = (x > 0 && map[y][x - 1] == 7 ? 34 : 2) * 4;
             } else if (k == 4 || k == 5) {

@@ -90,8 +90,28 @@ def capture(map_id, objective, seat, blue_party=0, red_party=0):
                         if a["type"] == "wait" and a["actor"] == (129 if seat else 1)
                     ]
                     ty = 13 if seat else 1
+                    # Route around lakes and occupied deployment tiles instead of
+                    # greedily minimizing straight-line distance into a dead end.
+                    blocked = {
+                        (u["x"], u["y"])
+                        for u in o["units"]
+                        if not u["dead"] and u["id"] != (129 if seat else 1)
+                    }
+                    distance = {(7, ty): 0}
+                    pending = [(7, ty)]
+                    for x, y in pending:
+                        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                            if (
+                                0 <= nx < 15
+                                and 0 <= ny < 15
+                                and (nx, ny) not in distance
+                                and (nx, ny) not in blocked
+                                and o["terrain"][ny][nx] not in (44, 16)
+                            ):
+                                distance[nx, ny] = distance[x, y] + 1
+                                pending.append((nx, ny))
                     a = (
-                        min(moves, key=lambda a: abs(a["x"] - 7) + abs(a["y"] - ty))
+                        min(moves, key=lambda a: distance.get((a["x"], a["y"]), 999))
                         if moves
                         else next(a for a in actions if a["type"] == "end")
                     )
