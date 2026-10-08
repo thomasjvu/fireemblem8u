@@ -4,6 +4,7 @@
 from rules import describe
 from pathlib import Path
 import os
+import sys
 import json, subprocess, time, threading, uuid, struct, secrets, argparse, hashlib
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
@@ -22,7 +23,13 @@ class Session:
         peer_map=None,
         peer_choices=None,
         video=False,
+        desktop=False,
+        human_seats=0,
+        reuse=None,
     ):
+        self.owns_process = True
+        self.desktop = desktop
+        self.human_seats = human_seats
         self.lock = threading.RLock()
         self.id = uuid.uuid4().hex
         self.keys = [secrets.token_urlsafe(24) for _ in range(2)]
@@ -31,6 +38,7 @@ class Session:
         self.failed = None
         self.log = Path(evidence or ROOT / "build/versus/agent-matches" / self.id)
         self.log.mkdir(parents=True, exist_ok=False)
+        self.emulator_log = reuse.emulator_log if reuse is not None else self.log / "emulator.log"
         manifest = json.loads((ROOT / "build/versus/manifest.json").read_text())
         self.manifest = manifest
         catalog_bytes = (ROOT / "build/versus/catalog.json").read_bytes()
@@ -62,8 +70,13 @@ class Session:
             if " = " in line:
                 key, value = line.rstrip(";").split(" = ")
                 symbols[key] = value.replace("0x", "")
+        binary = ROOT / "build/versus" / ("agent-desktop" if desktop else "agent-bridge")
+        if desktop and sys.platform == "darwin" and os.environ.get("SDL_VIDEODRIVER") != "dummy":
+            binary = ROOT / "build/versus/Fire Emblem Versus.app/Contents/MacOS/agent-desktop"
+        if not binary.exists():
+            raise RuntimeError("Build the native frontend with tools/manage.py desktop first")
         args = [
-            str(ROOT / "build/versus/agent-bridge"),
+            str(binary),
             str(ROOT / "build/versus/fire-emblem-versus.gba"),
             symbols["gBmMapTerrain"],
             manifest["symbols"]["VersusOptions"].removeprefix("0x"),
@@ -82,20 +95,52 @@ class Session:
         frames = self.log / "frames"
         if video:
             frames.mkdir()
-        self.p = subprocess.Popen(
-            args,
-            cwd=ROOT,
-            env={
-                **os.environ,
-                "VERSUS_FRAME_DIRECTORY": str(frames.resolve()) if video else "",
-            },
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=(self.log / "emulator.log").open("w"),
-            text=True,
-            bufsize=1,
-        )
-        assert json.loads(self.p.stdout.readline())["ready"]
+        if reuse is not None:
+            if not desktop or not reuse.desktop or reuse.p.poll() is not None:
+                raise RuntimeError("Only a live native frontend can be reused")
+            if video or reuse.choices is None:
+                raise RuntimeError("Persistent native frontend does not support legacy screenshot export")
+            if reuse.manifest['rom_sha256'] != self.manifest['rom_sha256']:
+                raise RuntimeError("Cannot reuse a frontend for a different ROM")
+            self.p = reuse.p
+            reuse.event("frontend_transferred", {"next_match": self.id})
+            reuse.owns_process = False
+            ready = self.rpc("reset 0 " + " ".join(map(str, [int(red), *choices, human_seats])))
+            if not ready.get('ready'):
+                self.close()
+                raise RuntimeError("Native frontend reset failed")
+        else:
+            self.p = subprocess.Popen(
+                args,
+                cwd=ROOT,
+                env={
+                    **os.environ,
+                    "VERSUS_FRAME_DIRECTORY": str(frames.resolve()) if video else "",
+                    "VERSUS_HUMAN_SEATS": str(human_seats),
+                },
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=self.emulator_log.open("w"),
+                text=True,
+                bufsize=1,
+            )
+            startup = []
+            reader = threading.Thread(target=lambda: startup.append(self.p.stdout.readline()), daemon=True)
+            reader.start()
+            reader.join(10)
+            if reader.is_alive():
+                self.p.kill()
+                try:
+                    self.p.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
+                raise RuntimeError("Emulator frontend startup timed out; inspect " + str(self.emulator_log))
+            ready = startup[0]
+            if not ready:
+                self.p.wait(timeout=10)
+                raise RuntimeError("Emulator frontend failed to start; inspect " + str(self.emulator_log))
+            if not json.loads(ready).get("ready"):
+                raise RuntimeError("Emulator bridge did not become ready")
         self.event(
             "start",
             {
@@ -123,7 +168,7 @@ class Session:
         result = self.p.stdout.readline()
         if not result:
             raise RuntimeError(
-                "Emulator exited; inspect " + str(self.log / "emulator.log")
+                "Emulator exited; inspect " + str(self.emulator_log)
             )
         return json.loads(result)
 
@@ -350,10 +395,51 @@ class Session:
             self.event("action", {"seat": seat, "request": body, "result": result})
             return result
 
+    def human_action(self, seat, sequence, stop=None):
+        """Wait for an ordinary map-menu action, then require linked confirmation.
+
+        While a human moves the cursor or opens menus, transient unit buffers may
+        differ. Poll sequence only; do not request legal commands or peer equality
+        until the ROM has committed the human action.
+        """
+        if not self.desktop or not (self.human_seats & (1 << seat)):
+            raise RuntimeError("Native human input requires a desktop human seat")
+        with self.lock:
+            response = self.rpc(f"control {seat} 1")
+            if not response.get("accepted"):
+                raise RuntimeError("Could not enable human input")
+            self.event("human_input_enabled", {"seat": seat, "sequence": sequence})
+        try:
+            while stop is None or not stop.is_set():
+                with self.lock:
+                    snapshot = self.rpc(f"observe {seat}")
+                if snapshot.get("error"):
+                    raise RuntimeError("ROM link failed during human turn")
+                if snapshot["seq"] > sequence:
+                    with self.lock:
+                        self.rpc(f"control {seat} 0")
+                        peers = self.stable()
+                    if peers[0]["seq"] != sequence + 1:
+                        raise RuntimeError("Unexpected human command sequence")
+                    self.event("human_action", {"seat": seat, "sequence": peers[0]["seq"],
+                                                "state_hash": peers[0]["hash"]})
+                    return {"accepted": True, "sequence": peers[0]["seq"]}
+                time.sleep(0.025)
+            raise RuntimeError("Match stopped during human turn")
+        finally:
+            if self.p.poll() is None:
+                with self.lock:
+                    self.rpc(f"control {seat} 0")
+
     def close(self):
+        if not self.owns_process:
+            return
         if self.p.poll() is None:
-            self.p.stdin.write("quit\n")
-            self.p.stdin.flush()
+            try:
+                self.p.stdin.write("quit\n")
+                self.p.stdin.flush()
+            except BrokenPipeError:
+                pass
             try:
                 self.p.wait(timeout=10)
             except subprocess.TimeoutExpired:
@@ -425,6 +511,8 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--port", type=int, default=8768)
     p.add_argument("--red", action="store_true")
+    p.add_argument("--desktop", action="store_true", help="Show the native emulator window for agent API play")
+    p.add_argument("--hotseat", action="store_true", help="Native two-human play without an HTTP server")
     catalog = json.loads((ROOT / "versus/catalog.json").read_text())
     p.add_argument(
         "--map",
@@ -443,13 +531,26 @@ if __name__ == "__main__":
     a = p.parse_args()
     maps = [m["id"] for m in catalog["maps"]]
     parties = [m["id"] for m in catalog["parties"]]
-    serve(
-        Session(
+    session = Session(
             red=a.red,
             map_id=maps.index(a.map),
             blue_party=parties.index(a.blue_party),
             red_party=parties.index(a.red_party),
             objective=catalog["objectives"].index(a.objective),
-        ),
-        a.port,
-    )
+            desktop=a.desktop or a.hotseat,
+            human_seats=3 if a.hotseat else 0,
+        )
+    if a.hotseat:
+        try:
+            while session.p.poll() is None:
+                state = session.stable()[0]
+                if state['outcome']:
+                    time.sleep(.25)
+                else:
+                    session.human_action(state['active'], state['seq'])
+        except KeyboardInterrupt:
+            pass
+        finally:
+            session.close()
+    else:
+        serve(session, a.port)

@@ -18,13 +18,16 @@ struct Player {
     struct mLockstepThreadUser user;
     struct GBASIOLockstepDriver driver;
     mColor pixels[240 * 160];
-    atomic_uint frame, seq, state, error, seat, active, hash;
+    atomic_uint frame, seq, state, error, seat, active, hash, inputKeys;
     unsigned uiStep, kind, page;
     unsigned char command[24];
     char response[8192];
     atomic_uint request;
 };
 static struct Player players[2];
+#ifdef VERSUS_DESKTOP
+#include "desktop.h"
+#endif
 static int redOpener;
 static const char *frameDirectory;
 static void stopped(struct mLockstepUser *u) { (void)u; }
@@ -75,6 +78,11 @@ static void callback(struct mCoreThread *t) {
         }
     }
 
+#ifdef VERSUS_DESKTOP
+    desktopFrame(p);
+    atomic_store(&p->active, c->busRead8(c, 0x0203f355));
+    if (f > 243) keys = desktopInput(p, c);
+#endif
     if (f == 120)
         c->busWrite32(c, 0x0203eff0, 0x56534254);
     if (f >= 200 && f < 203)
@@ -141,11 +149,71 @@ static void callback(struct mCoreThread *t) {
         atomic_store(&p->request, 2);
     }
 }
+static struct GBASIOLockstepCoordinator coordinator;
+static int startCores(const char *rom) {
+    mLogSetDefaultLogger(&logger);
+    GBASIOLockstepCoordinatorInit(&coordinator);
+    for (int i = 0; i < 2; i++) {
+        struct Player *p = &players[i];
+        struct mCore *c = mCoreFind(rom);
+        if (!c || !c->init(c))
+            return 3;
+        mCoreInitConfig(c, NULL);
+        c->opts.audioSync = false;
+        c->opts.videoSync = false;
+        c->setVideoBuffer(c, p->pixels, 240);
+        if (!mCoreLoadFile(c, rom))
+            return 4;
+        p->thread.logger.logger = &logger;
+        p->thread.core = c;
+        p->thread.frameCallback = callback;
+        p->thread.userData = p;
+        mLockstepThreadUserInit(&p->user, &p->thread);
+        GBASIOLockstepDriverCreate(&p->driver, &p->user.d);
+        GBASIOLockstepCoordinatorAttach(&coordinator, &p->driver);
+        GBASIOSetDriver(&((struct GBA *)c->board)->sio, &p->driver.d);
+    }
+    for (int i = 0; i < 2; i++)
+        if (!mCoreThreadStart(&players[i].thread))
+            return 5;
+#ifdef VERSUS_DESKTOP
+    nativeAudio.samples = 1024;
+    nativeAudio.sampleRate = 48000;
+    audioStarted = mSDLInitAudio(&nativeAudio, &players[0].thread);
+    if (!audioStarted) fprintf(stderr, "Native audio unavailable: %s\n", SDL_GetError());
+    fprintf(stderr, "Native SDL video=%s audio=%s enabled=%u human_seats=%u\n",
+            SDL_GetCurrentVideoDriver(), SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none", audioStarted, humanSeats);
+#endif
+    return 0;
+}
+static void stopCores(void) {
+#ifdef VERSUS_DESKTOP
+    if (audioStarted) { mSDLDeinitAudio(&nativeAudio); audioStarted = false; }
+#endif
+    for (int i = 0; i < 2; i++)
+        mCoreThreadEnd(&players[i].thread);
+    for (int i = 0; i < 2; i++)
+        mCoreThreadJoin(&players[i].thread);
+    for (int i = 0; i < 2; i++) {
+        players[i].user.d.sleep = stopped;
+        players[i].user.d.wake = stopped;
+    }
+    for (int i = 0; i < 2; i++) {
+        mCoreConfigDeinit(&players[i].thread.core->config);
+        players[i].thread.core->deinit(players[i].thread.core);
+        GBASIOLockstepCoordinatorDetach(&coordinator, &players[i].driver);
+    }
+    GBASIOLockstepCoordinatorDeinit(&coordinator);
+}
 int main(int argc, char **argv) {
     if (argc < 2)
         return 2;
     if (argc < 9)
         return 2;
+#ifdef VERSUS_DESKTOP
+    if (!desktopInit()) { fprintf(stderr, "SDL frontend: %s\n", SDL_GetError()); return 6; }
+    setvbuf(stdin, NULL, _IONBF, 0);
+#endif
     frameDirectory = getenv("VERSUS_FRAME_DIRECTORY");
     terrainAddress = strtoul(argv[2], NULL, 16);
     optionsAddress = strtoul(argv[3], NULL, 16);
@@ -154,36 +222,16 @@ int main(int argc, char **argv) {
         chosen[0][i] = chosen[1][i] = atoi(argv[5 + i]);
     for (unsigned i = 0; i < 4 && argc > 9 + (int)i; i++)
         chosen[1][i] = atoi(argv[9 + i]);
-    mLogSetDefaultLogger(&logger);
-    struct GBASIOLockstepCoordinator link;
-    GBASIOLockstepCoordinatorInit(&link);
-    for (int i = 0; i < 2; i++) {
-        struct Player *p = &players[i];
-        struct mCore *c = mCoreFind(argv[1]);
-        if (!c || !c->init(c))
-            return 3;
-        mCoreInitConfig(c, NULL);
-        c->opts.audioSync = false;
-        c->opts.videoSync = false;
-        c->setVideoBuffer(c, p->pixels, 240);
-        if (!mCoreLoadFile(c, argv[1]))
-            return 4;
-        p->thread.logger.logger = &logger;
-        p->thread.core = c;
-        p->thread.frameCallback = callback;
-        p->thread.userData = p;
-        mLockstepThreadUserInit(&p->user, &p->thread);
-        GBASIOLockstepDriverCreate(&p->driver, &p->user.d);
-        GBASIOLockstepCoordinatorAttach(&link, &p->driver);
-        GBASIOSetDriver(&((struct GBA *)c->board)->sio, &p->driver.d);
-    }
-    for (int i = 0; i < 2; i++)
-        if (!mCoreThreadStart(&players[i].thread))
-            return 5;
+    int initialized = startCores(argv[1]);
+    if (initialized) return initialized;
     char input[1024];
     puts("{\"ready\":true}");
     fflush(stdout);
+#ifdef VERSUS_DESKTOP
+    while (desktopLine(input, sizeof(input))) {
+#else
     while (fgets(input, sizeof(input), stdin)) {
+#endif
         char op[32], hex[49];
         unsigned seat, page = 0, seq = 0, hash = 0;
         if (!strncmp(input, "quit", 4))
@@ -194,6 +242,42 @@ int main(int argc, char **argv) {
             continue;
         }
         struct Player *p = &players[seat];
+#ifdef VERSUS_DESKTOP
+        if (!strcmp(op, "reset")) {
+            unsigned opener, map, blue, red, objective, humans;
+            if (sscanf(input, "%*s %*u %u %u %u %u %u %u", &opener, &map, &blue, &red, &objective, &humans) != 6) {
+                puts("{\"error\":\"bad_reset\"}"); fflush(stdout); continue;
+            }
+            stopCores();
+            memset(players, 0, sizeof(players));
+            memset(frameClock, 0, sizeof(frameClock));
+            memset(displayPixels, 0, sizeof(displayPixels));
+            atomic_store(&armedSeats, 0); atomic_store(&keyboardKeys, 0);
+            atomic_store(&injectedKeys[0], 0); atomic_store(&injectedKeys[1], 0);
+            redOpener = !!opener; humanSeats = humans & 3;
+            for (unsigned i = 0; i < 2; i++) {
+                chosen[i][0] = map; chosen[i][1] = blue; chosen[i][2] = red; chosen[i][3] = objective;
+            }
+            int status = startCores(argv[1]);
+            if (status) { puts("{\"error\":\"reset_failed\"}"); fflush(stdout); return status; }
+            puts("{\"ready\":true}"); fflush(stdout); continue;
+        }
+        if (!strcmp(op, "control") || !strcmp(op, "keys")) {
+            unsigned value = 0;
+            sscanf(input, "%*s %*u %u", &value);
+            if (!(humanSeats & (1u << seat))) puts("{\"error\":\"not_human_seat\"}");
+            else {
+                if (!strcmp(op, "control")) {
+                    atomic_store(&keyboardKeys, 0);
+                    atomic_store(&injectedKeys[seat], 0);
+                    if (value) atomic_fetch_or(&armedSeats, 1u << seat);
+                    else atomic_fetch_and(&armedSeats, ~(1u << seat));
+                } else atomic_store(&injectedKeys[seat], value & 1023);
+                puts("{\"accepted\":true}");
+            }
+            fflush(stdout); continue;
+        }
+#endif
         p->kind = 0;
         if (!strcmp(op, "legal")) {
             sscanf(input, "%*s %*u %u", &page);
@@ -216,7 +300,12 @@ int main(int argc, char **argv) {
         }
         atomic_store(&p->request, 1);
         for (int n = 0; n < 10000 && atomic_load(&p->request) != 2; n++)
+        {
+#ifdef VERSUS_DESKTOP
+            desktopPump();
+#endif
             usleep(1000);
+        }
         if (atomic_load(&p->request) != 2) {
             puts("{\"error\":\"emulator_timeout\"}");
             fflush(stdout);
@@ -226,19 +315,9 @@ int main(int argc, char **argv) {
         fflush(stdout);
         atomic_store(&p->request, 0);
     }
-    for (int i = 0; i < 2; i++)
-        mCoreThreadEnd(&players[i].thread);
-    for (int i = 0; i < 2; i++)
-        mCoreThreadJoin(&players[i].thread);
-    for (int i = 0; i < 2; i++) {
-        players[i].user.d.sleep = stopped;
-        players[i].user.d.wake = stopped;
-    }
-    for (int i = 0; i < 2; i++) {
-        mCoreConfigDeinit(&players[i].thread.core->config);
-        players[i].thread.core->deinit(players[i].thread.core);
-        GBASIOLockstepCoordinatorDetach(&link, &players[i].driver);
-    }
-    GBASIOLockstepCoordinatorDeinit(&link);
+    stopCores();
+#ifdef VERSUS_DESKTOP
+    desktopClose();
+#endif
     return 0;
 }
