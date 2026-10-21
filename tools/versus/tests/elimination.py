@@ -9,7 +9,7 @@ try:
   u=0x202cfbc+n*72;g.write(u+0x13,0,8);g.write(u+0xc,5)
  g.write(0x202cfbc+0x13,1,8)
  g.write(0x202be4c+0x15,60,8)
- g.cmd(2,actor=0x81,target=1,x=3,y=6,cost=4,frames=600)
+ g.cmd(2,actor=0x81,target=1,x=3,y=6,cost=4,frames=1800)
  assert g.read(0x203f359,8)==0
  assert g.read(0x203f358,8)==1
  assert g.read(0x203f35c,8)==0

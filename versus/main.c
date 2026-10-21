@@ -203,7 +203,7 @@ static void armies(void) {
             u->def = r->defense;
             u->res = r->resistance;
             for (j = 0; j < 8; j++)
-                u->ranks[j] = 181;
+                u->ranks[j] = u->pClassData->baseRanks[j] ? 181 : 0;
             u->items[0] = MakeNewItem(r->item);
             u->items[1] = MakeNewItem(ITEM_VULNERARY);
         }
@@ -236,7 +236,9 @@ static void begin(ProcPtr proc) {
     v->error = 0;
     gPlaySt.chapterIndex = 0;
     gPlaySt.chapterStateBits = PLAY_FLAG_EXTRA_MAP;
-    gPlaySt.config.animationType = 1;
+    gPlaySt.config.animationType = PLAY_ANIMCONF_ON_UNIQUE_BG;
+    /* Generic faction palettes distinguish mirrored rosters in battle scenes. */
+    gPlaySt.config.unitColor = 1;
     gPlaySt.config.disableAutoEndTurns = 1;
     gPlaySt.chapterVisionRange = 0;
     gPlaySt.chapterWeatherId = 0;

@@ -174,6 +174,11 @@ void VsPlayerIdle(ProcPtr proc) {
     }
     if (v->state == VS_EXECUTING && v->hasCommand && !v->executed &&
         v->command.type < VS_END_PHASE) {
+        /* Injected agent/peer actions enter below the normal selection path.
+         * Tear down its cached map panels just as label 1 does, before the
+         * action reuses text/portrait graphics. Follow the acting unit too. */
+        EndPlayerPhaseSideWindows();
+        SetCursorMapPosition(v->command.x, v->command.y);
         loadCommand();
         Proc_Goto(proc, 7);
         return;
@@ -200,7 +205,7 @@ void VsFinishAction(ProcPtr proc) {
             struct Unit *u = GetUnit((s ? 0x80 : 0) + i);
             u->exp = 0xFF;
             for (j = 0; j < 8; j++)
-                u->ranks[j] = 181;
+                u->ranks[j] = u->pClassData->baseRanks[j] ? 181 : 0;
         }
     VersusCompleteAction();
 }
@@ -354,8 +359,10 @@ void VsGoalDisplay_Init(struct PlayerInterfaceProc *p) {
     ClearText(&texts[1]);
     Text_InsertDrawString(&texts[0], 0, TEXT_COLOR_SYSTEM_WHITE,
                           VS_RAM->activeSeat ? "Red phase" : "Blue phase");
-    Text_InsertDrawNumberOrBlank(&texts[1], 8, TEXT_COLOR_SYSTEM_BLUE, VS_RAM->round);
-    Text_InsertDrawString(&texts[1], 16, TEXT_COLOR_SYSTEM_WHITE, "/30 rounds");
+    /* The native goal panel is only eight tiles wide. Leave space for two
+     * digits and keep the label within its text allocation. */
+    Text_InsertDrawNumberOrBlank(&texts[1], 16, TEXT_COLOR_SYSTEM_BLUE, VS_RAM->round);
+    Text_InsertDrawString(&texts[1], 24, TEXT_COLOR_SYSTEM_WHITE, "/30");
     p->unitClock = 1;
 }
 
