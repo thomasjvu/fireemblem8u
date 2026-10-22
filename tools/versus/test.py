@@ -59,6 +59,7 @@ for name, source in [
         ]
     )
 run([sys.executable, "tools/versus/tests/runtime.py"], timeout=60)
+run([sys.executable, "tools/versus/tests/browser_gate.py"], timeout=60)
 run([sys.executable, "tools/versus/tests/combat.py"], timeout=60)
 run([sys.executable, "tools/versus/tests/battle_scenes.py"], timeout=60)
 run([sys.executable, "tools/versus/tests/lifecycle.py"], timeout=60)

@@ -38,11 +38,13 @@ struct VersusContext {
     u16 savedSerialEnable;
 };
 _Static_assert(sizeof(struct VersusCommand) == 24, "command mailbox ABI");
+_Static_assert(__builtin_offsetof(struct VersusContext, command) == 0x64, "browser command ABI");
 _Static_assert(__builtin_offsetof(struct VersusContext, mode) == 0x352, "context mailbox ABI");
 _Static_assert(sizeof(struct Unit) == 72, "FE8 unit ABI");
 struct VersusOptions {
     u8 chosenMap, chosenBlue, chosenRed, chosenObjective;
     u8 map, blue, red, objective, victoryReason;
+    u8 browserGate; /* Host orders commands; no serial transport in browser rooms. */
 };
 extern struct VersusOptions VersusOptions;
 int VersusCanSeize(int seat, int x, int y);
@@ -53,6 +55,7 @@ u32 VersusStateHash(void);
 void VersusSealState(void);
 int VersusValidate(const struct VersusCommand *);
 void VersusSubmit(struct VersusCommand *);
+void VersusBrowserExecute(const struct VersusCommand *);
 void VersusLinkTick(void);
 void VersusLinkInit(void);
 void VersusLinkStop(void);

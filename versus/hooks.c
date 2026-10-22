@@ -145,7 +145,7 @@ static void loadCommand(void) {
 }
 u32 VsApplyUnitAction(ProcPtr proc) {
     struct VersusContext *v = VS_RAM;
-    struct VersusCommand c;
+    struct VersusCommand c = {0};
     if (!VersusActive())
         return Original_ApplyUnitAction(proc);
     if (v->state == VS_PLAY) {
@@ -254,6 +254,10 @@ void VsOnMain(void) {
         volatile u32 *request = (volatile u32 *)0x0203F800;
         if (request[0] == 0x56534C47)
             VersusAgentLegal();
+        if (request[0] == 0x56534243) {
+            request[0] = 0;
+            VersusBrowserExecute((struct VersusCommand *)(request + 1));
+        }
         if (request[0] == 0x5653434D) {
             request[0] = 0;
             if (VS_RAM->state == VS_PLAY &&

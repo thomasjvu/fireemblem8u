@@ -82,11 +82,28 @@ void VersusSubmit(struct VersusCommand *c) {
     v->remoteReady = v->mode == VS_LINKED;
     v->lastProgress = v->frames;
     if (v->mode == VS_HOTSEAT)
-        v->state = VS_EXECUTING;
+        v->state = VersusOptions.browserGate ? VS_PENDING : VS_EXECUTING;
     else {
         v->state = VS_PENDING;
         VersusSetMessage(VS_ACTION);
     }
+}
+/* Browser rooms exchange tactical commands rather than clocking serial bytes.
+ * Human previews stop in PENDING until the room accepts the command. Both
+ * clients then use exactly the same native execution/confirmation boundary. */
+void VersusBrowserExecute(const struct VersusCommand *c) {
+    struct VersusContext *v = VS_RAM;
+    int i;
+    if (!VersusOptions.browserGate || v->mode != VS_HOTSEAT ||
+        (v->state != VS_PLAY && v->state != VS_PENDING) || !VersusValidate(c))
+        return;
+    for (i = 0; i < 3; i++)
+        if (c->rng[i] != v->confirmedRng[i])
+            return;
+    v->command = *c;
+    v->hasCommand = 1;
+    v->executed = v->localDone = v->remoteDone = 0;
+    v->state = VS_EXECUTING;
 }
 static void receivePacket(const struct VsPacket *p) {
     struct VersusContext *v = VS_RAM;
